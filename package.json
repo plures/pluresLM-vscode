@@ -1,0 +1,213 @@
+{
+  "name": "superlocalmemory",
+  "displayName": "Superlocalmemory — AI Memory for Copilot",
+  "description": "Persistent vector memory for GitHub Copilot Chat. Remember context across sessions.",
+  "version": "0.1.0",
+  "publisher": "plures",
+  "license": "AGPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/plures/superlocalmemory-vscode.git"
+  },
+  "engines": {
+    "vscode": "^1.99.0"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "keywords": [
+    "memory",
+    "copilot",
+    "ai",
+    "vector-search",
+    "local-first",
+    "superlocalmemory"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "superlocalmemory.store",
+        "title": "Store Memory",
+        "category": "Memory"
+      },
+      {
+        "command": "superlocalmemory.search",
+        "title": "Search Memory",
+        "category": "Memory"
+      },
+      {
+        "command": "superlocalmemory.forget",
+        "title": "Forget Memory",
+        "category": "Memory"
+      },
+      {
+        "command": "superlocalmemory.indexProject",
+        "title": "Index Project",
+        "category": "Memory"
+      },
+      {
+        "command": "superlocalmemory.stats",
+        "title": "Memory Stats",
+        "category": "Memory"
+      },
+      {
+        "command": "superlocalmemory.syncStatus",
+        "title": "Sync Status",
+        "category": "Memory"
+      }
+    ],
+    "configuration": {
+      "title": "Superlocalmemory",
+      "properties": {
+        "superlocalmemory.dbPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to memory database (default: ~/.superlocalmemory/vscode.db)"
+        },
+        "superlocalmemory.openaiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI API key for embeddings"
+        },
+        "superlocalmemory.openaiEmbeddingModel": {
+          "type": "string",
+          "default": "text-embedding-3-small",
+          "description": "OpenAI embeddings model"
+        },
+        "superlocalmemory.ollamaEndpoint": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "description": "Ollama endpoint for local embeddings fallback"
+        },
+        "superlocalmemory.ollamaEmbeddingModel": {
+          "type": "string",
+          "default": "nomic-embed-text",
+          "description": "Ollama embedding model for local fallback"
+        },
+        "superlocalmemory.autoCapture": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-capture code patterns and decisions"
+        },
+        "superlocalmemory.maxRecallResults": {
+          "type": "number",
+          "default": 5,
+          "description": "Maximum memories to recall"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "superlocalmemory",
+          "title": "Memory",
+          "icon": "$(brain)"
+        }
+      ]
+    },
+    "views": {
+      "superlocalmemory": [
+        {
+          "id": "superlocalmemory.browser",
+          "name": "Memories"
+        },
+        {
+          "id": "superlocalmemory.stats",
+          "name": "Stats"
+        }
+      ]
+    },
+    "chatParticipants": [
+      {
+        "id": "superlocalmemory.memory",
+        "name": "memory",
+        "fullName": "Superlocalmemory",
+        "description": "Search and store persistent memories across sessions",
+        "isSticky": false,
+        "commands": [
+          {
+            "name": "recall",
+            "description": "Search memories for relevant context"
+          },
+          {
+            "name": "store",
+            "description": "Store information in long-term memory"
+          },
+          {
+            "name": "forget",
+            "description": "Remove a memory"
+          },
+          {
+            "name": "stats",
+            "description": "Show memory statistics"
+          },
+          {
+            "name": "index",
+            "description": "Index current project into memory"
+          }
+        ]
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "superlocalmemory_search",
+        "displayName": "Search Memory",
+        "modelDescription": "Search the user's persistent long-term memory for relevant past context, decisions, code patterns, and error fixes. Use this to recall information from previous sessions.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Search query"
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      },
+      {
+        "name": "superlocalmemory_store",
+        "displayName": "Store Memory",
+        "modelDescription": "Store important information in the user's persistent memory. Use for decisions, preferences, code patterns, and anything worth remembering across sessions.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "content": {
+              "type": "string",
+              "description": "Information to remember"
+            },
+            "category": {
+              "type": "string",
+              "description": "Category: decision, preference, code-pattern, error-fix, architecture"
+            }
+          },
+          "required": [
+            "content"
+          ]
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "watch": "tsc -w -p .",
+    "package": "npx @vscode/vsce package",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "openai": "^6.18.0"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.99.0",
+    "@types/node": "^22.0.0",
+    "@types/better-sqlite3": "^7.0.0",
+    "typescript": "^5.7.0"
+  }
+}

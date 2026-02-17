@@ -54,7 +54,7 @@ export class MemoryProvider {
         openaiModel: cfg.openaiEmbeddingModel,
         ollamaEndpoint: cfg.ollamaEndpoint,
         ollamaModel: cfg.ollamaEmbeddingModel,
-        dimension: 1536
+        dimension: 384  // bge-small-en-v1.5 (384-dim) matching core plugin and MCP server
       },
       {
         info: (m) => this.info(m),

@@ -52,8 +52,8 @@ export class MemoryProvider {
       {
         openaiKey: openaiKey || undefined,
         openaiModel: cfg.openaiEmbeddingModel,
-        ollamaEndpoint: cfg.ollamaEndpoint,
-        ollamaModel: cfg.ollamaEmbeddingModel,
+        // Don't pass Ollama settings - they're only for manual override
+        // Users must explicitly configure to use Ollama
         dimension: 384  // bge-small-en-v1.5 (384-dim) matching core plugin and MCP server
       },
       {

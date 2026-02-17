@@ -138,8 +138,11 @@ export class DualEmbeddings implements EmbeddingProvider {
       // OpenAI as primary override
       this.primary = new OpenAIEmbeddings(apiKey, opts.openaiModel, this._dimension);
       this.log('Using OpenAI embeddings (configured via settings)');
-    } else if (opts.ollamaEndpoint && opts.ollamaModel) {
-      // Ollama as fallback override (if explicitly configured)
+    }
+    
+    // Only initialize Ollama if explicitly provided (both endpoint and model must be present)
+    // This is for power users who want to use Ollama instead of Transformers.js
+    if (opts.ollamaEndpoint && opts.ollamaModel && !apiKey) {
       this.fallback = new OllamaEmbeddings(
         opts.ollamaEndpoint,
         opts.ollamaModel,
@@ -150,7 +153,9 @@ export class DualEmbeddings implements EmbeddingProvider {
     
     // Always initialize Transformers.js as default zero-config option
     this.default = new TransformersEmbeddings('Xenova/bge-small-en-v1.5', logger);
-    this.log('Zero-config Transformers.js embeddings initialized (384-dim)');
+    if (!apiKey && !(opts.ollamaEndpoint && opts.ollamaModel)) {
+      this.log('Using zero-config Transformers.js embeddings (384-dim)');
+    }
   }
 
   async embed(text: string): Promise<number[]> {

@@ -2,7 +2,7 @@
   "name": "superlocalmemory",
   "displayName": "Superlocalmemory — AI Memory for Copilot",
   "description": "Persistent vector memory for GitHub Copilot Chat. Remember context across sessions.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "plures",
   "license": "AGPL-3.0",
   "repository": {

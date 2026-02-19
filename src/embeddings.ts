@@ -29,7 +29,7 @@ export class OpenAIEmbeddings implements EmbeddingProvider {
       this.client = new OpenAI({ apiKey: this.apiKey });
     } catch (err) {
       throw new Error(
-        `OpenAI module not found. Install with: npm install openai\nError: ${String(err)}`
+        `OpenAI package not found. Install it to use OpenAI embeddings.\nError: ${String(err)}`
       );
     }
   }
@@ -50,7 +50,7 @@ export class OpenAIEmbeddings implements EmbeddingProvider {
     if (embedding.length !== this.dimension) {
       // Pad or truncate to match dimension
       if (embedding.length < this.dimension) {
-        return [...embedding, ...new Array(this.dimension - embedding.length).fill(0)];
+        return [...embedding, ...Array.from({ length: this.dimension - embedding.length }, () => 0)];
       }
       return embedding.slice(0, this.dimension);
     }

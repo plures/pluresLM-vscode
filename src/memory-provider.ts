@@ -80,9 +80,9 @@ export class MemoryProvider {
     
     // Check if we have a dimension metadata stored
     const profile = this.db.getProfile();
-    const storedDim = profile?.facts?.find(f => f.startsWith('embedding_dimension:'));
+    const storedDim = profile?.facts?.find(f => typeof f === 'string' && f.startsWith('embedding_dimension:'));
     
-    if (storedDim) {
+    if (storedDim && typeof storedDim === 'string') {
       const dim = parseInt(storedDim.split(':')[1], 10);
       if (dim !== this.embeddings?.dimension) {
         this.info(

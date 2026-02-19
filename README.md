@@ -50,7 +50,7 @@ npm run build
 
 Then press `F5` in VS Code to run an Extension Development Host.
 
-**Note**: On first activation, the extension will download the bge-small-en-v1.5 model (~33MB) from Hugging Face. Subsequent activations will use the cached model.
+**Note**: The bge-small-en-v1.5 model (~33MB) will be downloaded from Hugging Face on first use (when generating the first embedding). Subsequent operations will use the cached model.
 
 ## Configuration
 

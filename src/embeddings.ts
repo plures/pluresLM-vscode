@@ -6,7 +6,6 @@
  */
 
 import { pipeline } from '@huggingface/transformers';
-import OpenAI from 'openai';
 
 export interface EmbeddingProvider {
   embed(text: string): Promise<number[]>;
@@ -14,20 +13,49 @@ export interface EmbeddingProvider {
 }
 
 export class OpenAIEmbeddings implements EmbeddingProvider {
-  private client: OpenAI;
+  private client: any = null; // Lazy-loaded OpenAI client
   dimension: number;
 
   constructor(private apiKey: string, private model: string = 'text-embedding-3-small', dimension: number = 1536) {
-    this.client = new OpenAI({ apiKey });
     this.dimension = dimension;
   }
 
+  private async ensureClient(): Promise<void> {
+    if (this.client) return;
+    
+    try {
+      // Lazy import OpenAI only when needed
+      const { default: OpenAI } = await import('openai');
+      this.client = new OpenAI({ apiKey: this.apiKey });
+    } catch (err) {
+      throw new Error(
+        `OpenAI module not found. Install with: npm install openai\nError: ${String(err)}`
+      );
+    }
+  }
+
   async embed(text: string): Promise<number[]> {
+    await this.ensureClient();
+    
     const response = await this.client.embeddings.create({
       model: this.model,
-      input: text
+      input: text,
+      // Request specific dimension if supported by the model
+      dimensions: this.dimension
     });
-    return response.data[0].embedding;
+    
+    const embedding = response.data[0].embedding;
+    
+    // Ensure embedding matches requested dimension
+    if (embedding.length !== this.dimension) {
+      // Pad or truncate to match dimension
+      if (embedding.length < this.dimension) {
+        return [...embedding, ...new Array(this.dimension - embedding.length).fill(0)];
+      }
+      return embedding.slice(0, this.dimension);
+    }
+    
+    return embedding;
   }
 }
 
@@ -79,9 +107,15 @@ export class TransformersEmbeddings implements EmbeddingProvider {
     if (this.initPromise) return this.initPromise;
 
     this.initPromise = (async () => {
-      this.log(`Loading Transformers.js model: ${this.model}...`);
-      this.extractor = await pipeline('feature-extraction', this.model);
-      this.log(`Model ${this.model} loaded successfully (384-dim)`);
+      try {
+        this.log(`Loading Transformers.js model: ${this.model}...`);
+        this.extractor = await pipeline('feature-extraction', this.model);
+        this.log(`Model ${this.model} loaded successfully (384-dim)`);
+      } catch (err) {
+        // Reset initPromise on failure to allow retry
+        this.initPromise = null;
+        throw err;
+      }
     })();
 
     return this.initPromise;
@@ -140,15 +174,15 @@ export class DualEmbeddings implements EmbeddingProvider {
       this.log('Using OpenAI embeddings (configured via settings)');
     }
     
-    // Only initialize Ollama if explicitly provided (both endpoint and model must be present)
-    // This is for power users who want to use Ollama instead of Transformers.js
-    if (opts.ollamaEndpoint && opts.ollamaModel && !apiKey) {
+    // Initialize Ollama if explicitly provided (both endpoint and model must be present)
+    // This serves as a fallback even when OpenAI is configured (for resilience)
+    if (opts.ollamaEndpoint && opts.ollamaModel) {
       this.fallback = new OllamaEmbeddings(
         opts.ollamaEndpoint,
         opts.ollamaModel,
         this._dimension
       );
-      this.log('Using Ollama embeddings (configured via settings)');
+      this.log('Using Ollama embeddings as fallback (configured via settings)');
     }
     
     // Always initialize Transformers.js as default zero-config option

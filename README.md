@@ -8,7 +8,9 @@ This extension adds:
 - Memory sidebar (Activity Bar)
 - Status bar memory counter
 
-> Privacy: memories are stored locally in a SQLite database. Embeddings are generated via OpenAI **or** a local Ollama fallback. If you configure an OpenAI key, text you embed is sent to OpenAI for embeddings.
+> **Zero-config activation**: Install and it works immediately. No API keys or external services required.
+>
+> Privacy: memories are stored locally in a SQLite database. Embeddings are generated locally using Transformers.js (bge-small-en-v1.5). First activation downloads ~33MB model automatically. Optionally configure OpenAI or Ollama for power users.
 
 ## Screenshots
 
@@ -48,27 +50,34 @@ npm run build
 
 Then press `F5` in VS Code to run an Extension Development Host.
 
+**Note**: The bge-small-en-v1.5 model (~33MB) will be downloaded from Hugging Face on first use (when generating the first embedding). Subsequent operations will use the cached model.
+
 ## Configuration
 
-In Settings:
+In Settings (optional overrides for power users):
 - `superlocalmemory.dbPath` — path to SQLite DB (default: `~/.superlocalmemory/vscode.db`)
-- `superlocalmemory.openaiApiKey` — OpenAI key for embeddings
+- `superlocalmemory.openaiApiKey` — OpenAI key to override default Transformers.js embeddings
 - `superlocalmemory.openaiEmbeddingModel` — default `text-embedding-3-small`
-- `superlocalmemory.ollamaEndpoint` — default `http://localhost:11434`
+- `superlocalmemory.ollamaEndpoint` — Ollama endpoint to override default Transformers.js embeddings (default: `http://localhost:11434`)
 - `superlocalmemory.ollamaEmbeddingModel` — default `nomic-embed-text`
 - `superlocalmemory.autoCapture` — capture a snippet on file saves
 - `superlocalmemory.maxRecallResults` — default `5`
 
-You can also set `OPENAI_API_KEY` in your environment.
+By default, the extension uses local Transformers.js embeddings (bge-small-en-v1.5, 384-dim) with zero configuration required.
 
 ## Privacy & Data Handling
 
 - All memories are stored locally in SQLite.
-- Embeddings require an embedding provider:
-  - OpenAI (if configured via settings / env)
-  - Ollama fallback (local HTTP)
+- Embeddings are generated **locally** using Transformers.js (bge-small-en-v1.5):
+  - Zero-config: works immediately after installation
+  - First activation downloads ~33MB model automatically
+  - No external API calls or data upload
+  - 384-dim embeddings (matching superlocalmemory core plugin and MCP server)
+- Optional overrides for power users:
+  - OpenAI (via settings / env) - sends text to OpenAI API
+  - Ollama (via settings) - requires local Ollama installation
 
-No data is uploaded anywhere else.
+By default, no data leaves your machine.
 
 ## Comparison with Copilot built-in memory
 

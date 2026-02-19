@@ -52,9 +52,10 @@ export class MemoryProvider {
       {
         openaiKey: openaiKey || undefined,
         openaiModel: cfg.openaiEmbeddingModel,
+        // Pass through Ollama settings; DualEmbeddings will decide whether to use them
         ollamaEndpoint: cfg.ollamaEndpoint,
         ollamaModel: cfg.ollamaEmbeddingModel,
-        dimension: 1536
+        dimension: 384  // bge-small-en-v1.5 (384-dim) matching core plugin and MCP server
       },
       {
         info: (m) => this.info(m),
@@ -63,8 +64,43 @@ export class MemoryProvider {
     );
 
     this.db = new MemoryDB(dbPath, this.embeddings.dimension);
+    
+    // Check if we need to warn about dimension mismatch
+    await this.checkDimensionMigration();
+    
     this.initialized = true;
     this.info(`Initialized DB at ${dbPath}`);
+  }
+
+  private async checkDimensionMigration(): Promise<void> {
+    if (!this.db) return;
+    
+    const count = this.db.count();
+    if (count === 0) return; // New DB, no migration needed
+    
+    // Check if we have a dimension metadata stored
+    const profile = this.db.getProfile();
+    const storedDim = profile?.facts?.find(f => typeof f === 'string' && f.startsWith('embedding_dimension:'));
+    
+    if (storedDim && typeof storedDim === 'string') {
+      const dim = parseInt(storedDim.split(':')[1], 10);
+      if (dim !== this.embeddings?.dimension) {
+        this.info(
+          `⚠️  Dimension mismatch detected: DB has ${dim}-dim embeddings, now using ${this.embeddings?.dimension}-dim. ` +
+          `Recall quality may be degraded. Consider running "Memory: Index Project" to rebuild with new dimensions.`
+        );
+      }
+    } else {
+      // First time migration - store current dimension
+      const currentProfile = profile ?? {
+        summary: '',
+        facts: [],
+        updated_at: Date.now(),
+        capture_count: 0
+      };
+      currentProfile.facts.push(`embedding_dimension:${this.embeddings?.dimension}`);
+      this.db.setProfile(currentProfile);
+    }
   }
 
   close(): void {

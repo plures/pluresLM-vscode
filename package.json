@@ -72,22 +72,22 @@
         "superlocalmemory.openaiApiKey": {
           "type": "string",
           "default": "",
-          "description": "OpenAI API key for embeddings"
+          "description": "(Optional) OpenAI API key to override default Transformers.js embeddings"
         },
         "superlocalmemory.openaiEmbeddingModel": {
           "type": "string",
           "default": "text-embedding-3-small",
-          "description": "OpenAI embeddings model"
+          "description": "(Optional) OpenAI embeddings model"
         },
         "superlocalmemory.ollamaEndpoint": {
           "type": "string",
           "default": "http://localhost:11434",
-          "description": "Ollama endpoint for local embeddings fallback"
+          "description": "(Optional) Ollama endpoint to override default Transformers.js embeddings"
         },
         "superlocalmemory.ollamaEmbeddingModel": {
           "type": "string",
           "default": "nomic-embed-text",
-          "description": "Ollama embedding model for local fallback"
+          "description": "(Optional) Ollama embedding model"
         },
         "superlocalmemory.autoCapture": {
           "type": "boolean",
@@ -201,13 +201,16 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "better-sqlite3": "^11.0.0",
+    "@huggingface/transformers": "^3.8.1",
+    "better-sqlite3": "^11.0.0"
+  },
+  "optionalDependencies": {
     "openai": "^6.18.0"
   },
   "devDependencies": {
-    "@types/vscode": "^1.99.0",
-    "@types/node": "^22.0.0",
     "@types/better-sqlite3": "^7.0.0",
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.99.0",
     "typescript": "^5.7.0"
   }
 }

@@ -1,4 +1,4 @@
-# Superlocalmemory — AI Memory for Copilot (VS Code Extension)
+# PluresLM — AI Memory for Copilot (VS Code Extension)
 
 Persistent, local-first long-term memory for **GitHub Copilot Chat**.
 
@@ -72,7 +72,7 @@ By default, the extension uses local Transformers.js embeddings (bge-small-en-v1
   - Zero-config: works immediately after installation
   - First activation downloads ~33MB model automatically
   - No external API calls or data upload
-  - 384-dim embeddings (matching superlocalmemory core plugin and MCP server)
+  - 384-dim embeddings (matching PluresLM core plugin and MCP server)
 - Optional overrides for power users:
   - OpenAI (via settings / env) - sends text to OpenAI API
   - Ollama (via settings) - requires local Ollama installation
@@ -83,7 +83,7 @@ By default, no data leaves your machine.
 
 Copilot memory (when available) is typically scoped and opaque.
 
-Superlocalmemory aims to be:
+PluresLM aims to be:
 - **local-first** and inspectable (SQLite)
 - **structured** (categories, sources, tags)
 - **cross-tool** (same memory core can power other integrations)

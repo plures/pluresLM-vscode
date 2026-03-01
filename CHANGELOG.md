@@ -1,3 +1,7 @@
+## [0.2.1] — 2026-03-01
+
+- fix(ci): add id-token permission to release workflow (#5) (c445f16)
+
 ## [0.2.0] — 2026-02-19
 
 - feat: Zero-config embeddings with Transformers.js (#2) (64fc2c8)

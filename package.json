@@ -1,6 +1,6 @@
 {
   "name": "superlocalmemory",
-  "displayName": "Superlocalmemory — AI Memory for Copilot",
+  "displayName": "PluresLM — AI Memory for Copilot",
   "description": "Persistent vector memory for GitHub Copilot Chat. Remember context across sessions.",
   "version": "0.2.1",
   "publisher": "plures",
@@ -22,7 +22,7 @@
     "ai",
     "vector-search",
     "local-first",
-    "superlocalmemory"
+    "plureslm"
   ],
   "activationEvents": [
     "onStartupFinished"
@@ -62,7 +62,7 @@
       }
     ],
     "configuration": {
-      "title": "Superlocalmemory",
+      "title": "PluresLM",
       "properties": {
         "superlocalmemory.dbPath": {
           "type": "string",
@@ -126,7 +126,7 @@
       {
         "id": "superlocalmemory.memory",
         "name": "memory",
-        "fullName": "Superlocalmemory",
+        "fullName": "PluresLM",
         "description": "Search and store persistent memories across sessions",
         "isSticky": false,
         "commands": [

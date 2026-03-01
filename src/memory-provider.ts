@@ -5,6 +5,7 @@ import * as fs from 'node:fs';
 
 import { getConfig } from './config';
 import { MemoryDB, MemoryEntry, MemorySearchResult } from './memory-db';
+export type { MemoryEntry };
 import { DualEmbeddings } from './embeddings';
 
 export type MemoryCategory = 'decision' | 'preference' | 'code-pattern' | 'error-fix' | 'architecture' | 'other';
@@ -148,6 +149,35 @@ export class MemoryProvider {
   forgetById(id: string): boolean {
     if (!this.db) throw new Error('MemoryProvider not initialized');
     return this.db.delete(id);
+  }
+
+  deleteSource(source: string): number {
+    if (!this.db) throw new Error('MemoryProvider not initialized');
+    return this.db.deleteBySource(source);
+  }
+
+  listSources(): Array<{ source: string; count: number }> {
+    return this.db?.listSources() ?? [];
+  }
+
+  listByCategory(category: string, limit?: number): Array<Omit<MemoryEntry, 'embedding'>> {
+    return this.db?.listByCategory(category, limit) ?? [];
+  }
+
+  listBySource(source: string, limit?: number): Array<Omit<MemoryEntry, 'embedding'>> {
+    return this.db?.listBySource(source, limit) ?? [];
+  }
+
+  listAllTags(): Array<{ tag: string; count: number }> {
+    return this.db?.listAllTags() ?? [];
+  }
+
+  listByTag(tag: string, limit?: number): Array<Omit<MemoryEntry, 'embedding'>> {
+    return this.db?.listByTag(tag, limit) ?? [];
+  }
+
+  listByDateRange(start: number, end: number, limit?: number): Array<Omit<MemoryEntry, 'embedding'>> {
+    return this.db?.listByDateRange(start, end, limit) ?? [];
   }
 
   /**

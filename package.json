@@ -59,6 +59,22 @@
         "command": "superlocalmemory.syncStatus",
         "title": "Sync Status",
         "category": "Memory"
+      },
+      {
+        "command": "superlocalmemory.browseKnowledge",
+        "title": "Browse Knowledge",
+        "category": "Memory"
+      },
+      {
+        "command": "superlocalmemory.viewDocumentDetails",
+        "title": "View Document Details",
+        "category": "Memory"
+      },
+      {
+        "command": "superlocalmemory.deleteSource",
+        "title": "Delete Source",
+        "category": "Memory",
+        "icon": "$(trash)"
       }
     ],
     "configuration": {
@@ -119,6 +135,24 @@
         {
           "id": "superlocalmemory.stats",
           "name": "Stats"
+        },
+        {
+          "id": "superlocalmemory.knowledgeBrowser",
+          "name": "Knowledge Browser"
+        }
+      ]
+    },
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "superlocalmemory.deleteSource",
+          "when": "viewItem == knowledgeSource",
+          "group": "inline"
+        },
+        {
+          "command": "superlocalmemory.viewDocumentDetails",
+          "when": "viewItem == knowledgeEntry",
+          "group": "inline"
         }
       ]
     },

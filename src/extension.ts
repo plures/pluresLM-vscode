@@ -4,7 +4,7 @@ import { getConfig } from './config';
 import { MemoryProvider } from './memory-provider';
 import { registerCommands } from './commands';
 import { MemoryStatusBar } from './status-bar';
-import { MemoryTreeDataProvider, StatsViewProvider } from './sidebar';
+import { MemoryTreeDataProvider, StatsViewProvider, KnowledgeBrowserProvider } from './sidebar';
 import { registerChatParticipant } from './chat-participant';
 import { registerLanguageModelTools } from './tools';
 
@@ -23,6 +23,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     void statusBar?.refresh();
     treeProvider?.refresh();
     statsProvider?.refresh();
+    knowledgeBrowserProvider?.refresh();
   };
 
   // Commands
@@ -31,9 +32,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Sidebar views
   const treeProvider = new MemoryTreeDataProvider(memory);
   const statsProvider = new StatsViewProvider(memory);
+  const knowledgeBrowserProvider = new KnowledgeBrowserProvider(memory);
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider('superlocalmemory.browser', treeProvider),
-    vscode.window.registerTreeDataProvider('superlocalmemory.stats', statsProvider)
+    vscode.window.registerTreeDataProvider('superlocalmemory.stats', statsProvider),
+    vscode.window.registerTreeDataProvider('superlocalmemory.knowledgeBrowser', knowledgeBrowserProvider)
   );
 
   // Status bar

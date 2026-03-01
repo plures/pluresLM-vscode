@@ -405,6 +405,98 @@ export class MemoryDB {
     this.db.prepare(`UPDATE memories SET embedding = ? WHERE id = ?`).run(this.encodeEmbedding(embedding), id);
   }
 
+  listSources(): Array<{ source: string; count: number }> {
+    const rows = this.db
+      .prepare(`SELECT source, COUNT(*) as count FROM memories GROUP BY source ORDER BY count DESC`)
+      .all() as Array<{ source: string; count: number }>;
+    return rows;
+  }
+
+  listByCategory(category: string, limit: number = 50): Array<Omit<MemoryEntry, 'embedding'>> {
+    const rows = this.db
+      .prepare(
+        `SELECT id, content, created_at, source, tags, category FROM memories WHERE category = ? ORDER BY created_at DESC LIMIT ?`
+      )
+      .all(category, limit) as Array<Record<string, unknown>>;
+    return rows.map((row) => ({
+      id: row.id as string,
+      content: row.content as string,
+      created_at: row.created_at as number,
+      source: (row.source as string) ?? '',
+      tags: JSON.parse((row.tags as string) || '[]'),
+      category: (row.category as string) ?? 'other'
+    }));
+  }
+
+  listBySource(source: string, limit: number = 50): Array<Omit<MemoryEntry, 'embedding'>> {
+    const rows = this.db
+      .prepare(
+        `SELECT id, content, created_at, source, tags, category FROM memories WHERE source = ? ORDER BY created_at DESC LIMIT ?`
+      )
+      .all(source, limit) as Array<Record<string, unknown>>;
+    return rows.map((row) => ({
+      id: row.id as string,
+      content: row.content as string,
+      created_at: row.created_at as number,
+      source: (row.source as string) ?? '',
+      tags: JSON.parse((row.tags as string) || '[]'),
+      category: (row.category as string) ?? 'other'
+    }));
+  }
+
+  listAllTags(): Array<{ tag: string; count: number }> {
+    const rows = this.db
+      .prepare(`SELECT tags FROM memories WHERE tags IS NOT NULL AND tags != '[]'`)
+      .all() as Array<{ tags: string }>;
+    const counts = new Map<string, number>();
+    for (const { tags } of rows) {
+      const parsed: string[] = JSON.parse(tags || '[]');
+      for (const t of parsed) {
+        counts.set(t, (counts.get(t) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()]
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  listByTag(tag: string, limit: number = 50): Array<Omit<MemoryEntry, 'embedding'>> {
+    const rows = this.db
+      .prepare(
+        `SELECT id, content, created_at, source, tags, category FROM memories WHERE tags LIKE ? ORDER BY created_at DESC LIMIT ?`
+      )
+      .all(`%${tag}%`, limit) as Array<Record<string, unknown>>;
+    return rows
+      .filter((row) => {
+        const parsed: string[] = JSON.parse((row.tags as string) || '[]');
+        return parsed.includes(tag);
+      })
+      .map((row) => ({
+        id: row.id as string,
+        content: row.content as string,
+        created_at: row.created_at as number,
+        source: (row.source as string) ?? '',
+        tags: JSON.parse((row.tags as string) || '[]'),
+        category: (row.category as string) ?? 'other'
+      }));
+  }
+
+  listByDateRange(start: number, end: number, limit: number = 50): Array<Omit<MemoryEntry, 'embedding'>> {
+    const rows = this.db
+      .prepare(
+        `SELECT id, content, created_at, source, tags, category FROM memories WHERE created_at >= ? AND created_at <= ? ORDER BY created_at DESC LIMIT ?`
+      )
+      .all(start, end, limit) as Array<Record<string, unknown>>;
+    return rows.map((row) => ({
+      id: row.id as string,
+      content: row.content as string,
+      created_at: row.created_at as number,
+      source: (row.source as string) ?? '',
+      tags: JSON.parse((row.tags as string) || '[]'),
+      category: (row.category as string) ?? 'other'
+    }));
+  }
+
   getLastSyncTime(peerId: string): number {
     const row = this.db.prepare(`SELECT last_sync_at FROM sync_state WHERE peer_id = ?`).get(peerId) as
       | { last_sync_at: number }

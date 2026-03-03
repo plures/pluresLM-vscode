@@ -7,7 +7,7 @@
   "license": "AGPL-3.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/plures/superlocalmemory-vscode.git"
+    "url": "https://github.com/plures/pluresLM-vscode.git"
   },
   "engines": {
     "vscode": "^1.99.0"

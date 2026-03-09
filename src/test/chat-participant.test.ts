@@ -16,24 +16,16 @@
  *   - Error propagation → markdown error message
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryService } from './mocks/memory-service.mock';
 import type { IMemoryProvider } from '../service.types';
+import { parseSlashCommand } from '../chat-participant';
 
 // ---------------------------------------------------------------------------
-// Inline re-implementation of the chat participant command-routing logic
-// (mirrors chat-participant.ts so we can unit-test the logic without VS Code).
+// Thin test harness around the chat participant command-routing logic.
+// Uses the real parseSlashCommand implementation from chat-participant.ts so
+// the tests exercise production behaviour and cannot drift.
 // ---------------------------------------------------------------------------
-
-function parseSlashCommand(text: string): { command: string; args: string } {
-  const t = text.trim();
-  if (t.startsWith('/')) {
-    const [cmd, ...rest] = t.slice(1).split(/\s+/);
-    return { command: cmd.toLowerCase(), args: rest.join(' ') };
-  }
-  const [cmd, ...rest] = t.split(/\s+/);
-  return { command: cmd.toLowerCase(), args: rest.join(' ') };
-}
 
 interface StreamSpy {
   messages: string[];

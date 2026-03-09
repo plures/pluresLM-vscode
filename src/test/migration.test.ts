@@ -8,35 +8,19 @@
  *   - Legacy toggle: service can be told to operate in "legacy" (no-embedding)
  *     mode and still serve list/stats correctly
  *   - storeRaw / seed path: memories without embeddings can be seeded and
- *     listed but NOT returned by search
+ *     listed but NOT returned by search (InMemoryService.search() skips
+ *     entries with empty `embedding[]`)
  *   - Migration state transitions: empty DB → first store → dimension locked
+ *
+ * The `detectDimensionMismatch` and `recordDimension` helpers are imported
+ * from `src/migration-utils.ts` — the same implementation used by
+ * `MemoryProvider.checkDimensionMigration()` — so these tests exercise the
+ * production logic rather than a hand-written duplicate.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryService } from './mocks/memory-service.mock';
-
-// ---------------------------------------------------------------------------
-// Dimension migration helpers (test-local; mirrors memory-provider.ts logic)
-// ---------------------------------------------------------------------------
-
-interface ProfileData {
-  facts: string[];
-  capture_count: number;
-}
-
-function detectDimensionMismatch(profile: ProfileData | null, currentDim: number): string | null {
-  if (!profile) return null;
-  const stored = profile.facts.find((f) => f.startsWith('embedding_dimension:'));
-  if (!stored) return null;
-  const dim = parseInt(stored.split(':')[1], 10);
-  return dim !== currentDim ? `Dimension mismatch: DB has ${dim}-dim, current is ${currentDim}-dim` : null;
-}
-
-function recordDimension(profile: ProfileData, dim: number): ProfileData {
-  const hasRecord = profile.facts.some((f) => f.startsWith('embedding_dimension:'));
-  if (hasRecord) return profile;
-  return { ...profile, facts: [...profile.facts, `embedding_dimension:${dim}`] };
-}
+import { detectDimensionMismatch, recordDimension, type ProfileData } from '../migration-utils';
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -110,6 +94,22 @@ describe('migration — legacy (no-embedding) memories', () => {
     expect(svc.count()).toBe(1);
     const list = svc.listByCategory('other');
     expect(list.some((e) => e.content === 'legacy fact')).toBe(true);
+  });
+
+  it('seeded memories without embeddings are NOT returned by search()', async () => {
+    // This matches the real service behaviour: legacy entries exist in the store
+    // but have no embedding vector, so they cannot be ranked by similarity.
+    svc.seed({ content: 'legacy fact', category: 'other', source: 'import', tags: [] });
+    const results = await svc.search('legacy fact');
+    expect(results).toHaveLength(0);
+  });
+
+  it('seeded memories WITH embeddings are returned by search()', async () => {
+    // Explicitly pass a non-empty embedding to make a seeded entry searchable
+    const searchableSvc = new InMemoryService({ scoreFn: (q, c) => c.includes(q) ? 1.0 : 0.0 });
+    searchableSvc.seed({ content: 'searchable seed', category: 'other', source: 'import', tags: [], embedding: [1] });
+    const results = await searchableSvc.search('searchable seed');
+    expect(results).toHaveLength(1);
   });
 
   it('seeded memories contribute to stats', () => {

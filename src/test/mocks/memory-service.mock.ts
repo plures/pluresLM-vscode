@@ -4,6 +4,21 @@
  *
  * Similarity search uses an optional custom scorer; the default returns a fixed
  * score of 1.0 so tests can focus on data flow rather than vector maths.
+ *
+ * Embedding behaviour:
+ *   - `store()` produces entries with a sentinel `[1]` embedding so they are
+ *     visible to `search()`.
+ *   - `seed()` defaults to an empty `[]` embedding, simulating "legacy" entries
+ *     that were imported without embeddings.  These entries appear in list/stats
+ *     but are skipped by `search()`.
+ *   - Pass an explicit non-empty `embedding` to `seed()` to make a seeded entry
+ *     also searchable.
+ *
+ * Fault injection:
+ *   - `storeError` is thrown by all mutating operations (`store`, `forgetByQuery`,
+ *     `forgetById`, `deleteSource`) to simulate a fully unavailable backend.
+ *   - `searchError` is thrown only by `search()`.
+ *   - `empty` causes `search()` to always return `[]` without throwing.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -13,13 +28,20 @@ import type { IMemoryProvider, MemoryCategory, StatsResult } from '../../service
 export type ScoreFn = (queryContent: string, candidateContent: string) => number;
 
 export interface ServiceFault {
-  /** If set, every mutating call throws this error. */
+  /**
+   * If set, every mutating call (`store`, `forgetByQuery`, `forgetById`,
+   * `deleteSource`) throws this error string.
+   */
   storeError?: string;
-  /** If set, every search call throws this error. */
+  /** If set, every `search()` call throws this error. */
   searchError?: string;
-  /** If true, the service appears initialised but returns empty results everywhere. */
+  /** If true, `search()` always returns `[]` without throwing. */
   empty?: boolean;
 }
+
+// Sentinel embedding used by `store()` to mark entries as "has embedding".
+// Must be non-empty so `search()` can distinguish them from legacy seeds.
+const SENTINEL_EMBEDDING: number[] = [1];
 
 export class InMemoryService implements IMemoryProvider {
   private memories: Map<string, MemoryEntry> = new Map();
@@ -29,25 +51,6 @@ export class InMemoryService implements IMemoryProvider {
   constructor(opts?: { scoreFn?: ScoreFn; fault?: ServiceFault }) {
     this.scoreFn = opts?.scoreFn ?? (() => 1.0);
     this.fault = opts?.fault ?? {};
-  }
-
-  // ── helpers ────────────────────────────────────────────────────────────────
-
-  private makeEntry(
-    content: string,
-    category: MemoryCategory,
-    source: string,
-    tags: string[]
-  ): MemoryEntry {
-    return {
-      id: randomUUID(),
-      content,
-      embedding: [],
-      created_at: Date.now(),
-      source,
-      tags,
-      category
-    };
   }
 
   // ── IMemoryProvider — lifecycle ────────────────────────────────────────────
@@ -69,7 +72,16 @@ export class InMemoryService implements IMemoryProvider {
     tags: string[] = []
   ): Promise<MemoryEntry> {
     if (this.fault.storeError) throw new Error(this.fault.storeError);
-    const entry = this.makeEntry(content, category, source, tags);
+    const entry: MemoryEntry = {
+      id: randomUUID(),
+      content,
+      // Non-empty sentinel so search() treats this as an embedded entry
+      embedding: SENTINEL_EMBEDDING,
+      created_at: Date.now(),
+      source,
+      tags,
+      category
+    };
     this.memories.set(entry.id, entry);
     return entry;
   }
@@ -79,6 +91,8 @@ export class InMemoryService implements IMemoryProvider {
     if (this.fault.empty) return [];
     const results: MemorySearchResult[] = [];
     for (const entry of this.memories.values()) {
+      // Skip legacy entries that have no embedding (seeded via seed() without an embedding)
+      if (entry.embedding.length === 0) continue;
       const score = this.scoreFn(query, entry.content);
       if (score > 0) results.push({ entry, score });
     }
@@ -86,16 +100,19 @@ export class InMemoryService implements IMemoryProvider {
   }
 
   async forgetByQuery(query: string, _threshold = 0.8): Promise<number> {
+    if (this.fault.storeError) throw new Error(this.fault.storeError);
     const matches = await this.search(query, 50);
     for (const { entry } of matches) this.memories.delete(entry.id);
     return matches.length;
   }
 
   forgetById(id: string): boolean {
+    if (this.fault.storeError) throw new Error(this.fault.storeError);
     return this.memories.delete(id);
   }
 
   deleteSource(source: string): number {
+    if (this.fault.storeError) throw new Error(this.fault.storeError);
     let count = 0;
     for (const [id, entry] of this.memories) {
       if (entry.source === source) {
@@ -182,12 +199,19 @@ export class InMemoryService implements IMemoryProvider {
 
   // ── test helpers ───────────────────────────────────────────────────────────
 
-  /** Directly seed a memory entry without going through store(). */
+  /**
+   * Directly seed a memory entry without going through `store()`.
+   *
+   * Defaults to an empty `[]` embedding to simulate a legacy entry that was
+   * imported without vector data.  Such entries appear in list/stats results
+   * but are **not** returned by `search()` (which skips empty-embedding entries).
+   * Pass an explicit `embedding` to make the seeded entry searchable.
+   */
   seed(partial: Partial<MemoryEntry> & { content: string }): MemoryEntry {
     const entry: MemoryEntry = {
       id: partial.id ?? randomUUID(),
       content: partial.content,
-      embedding: partial.embedding ?? [],
+      embedding: partial.embedding ?? [],   // empty by default → not searchable
       created_at: partial.created_at ?? Date.now(),
       source: partial.source ?? 'test-seed',
       tags: partial.tags ?? [],

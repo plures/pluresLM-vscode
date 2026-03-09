@@ -10,7 +10,8 @@
     "url": "https://github.com/plures/pluresLM-vscode.git"
   },
   "engines": {
-    "vscode": "^1.99.0"
+    "vscode": "^1.99.0",
+    "node": ">=20.19.0"
   },
   "categories": [
     "AI",

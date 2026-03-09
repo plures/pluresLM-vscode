@@ -48,7 +48,7 @@ async function invokeStoreTool(
   category?: string
 ): Promise<ToolResult> {
   const cat = (category ?? 'other') as any;
-  const entry = await memory.store(content, cat, 'vscode:lm-tool', []);
+  const entry = await memory.store(content, cat, 'vscode:lm-tool');
   return { parts: [{ type: 'text', value: `Stored memory: ${entry.id}` }] };
 }
 

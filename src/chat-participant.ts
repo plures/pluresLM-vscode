@@ -6,7 +6,7 @@ function getTextFromRequest(req: unknown): string {
   return (r?.prompt ?? r?.message ?? r?.text ?? '').toString();
 }
 
-function parseSlashCommand(text: string): { command: string; args: string } {
+export function parseSlashCommand(text: string): { command: string; args: string } {
   const t = text.trim();
   if (t.startsWith('/')) {
     const [cmd, ...rest] = t.slice(1).split(/\s+/);

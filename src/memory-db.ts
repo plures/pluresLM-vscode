@@ -512,6 +512,28 @@ export class MemoryDB {
       .run(peerId, timestamp);
   }
 
+  getAllEntries(): Array<Omit<MemoryEntry, 'embedding'>> {
+    const rows = this.db
+      .prepare(
+        `SELECT id, content, created_at, source, tags, category FROM memories ORDER BY created_at ASC`
+      )
+      .all() as Array<Record<string, unknown>>;
+    return rows.map((row) => ({
+      id: row.id as string,
+      content: row.content as string,
+      created_at: row.created_at as number,
+      source: (row.source as string) ?? '',
+      tags: JSON.parse((row.tags as string) || '[]'),
+      category: (row.category as string) ?? 'other'
+    }));
+  }
+
+  clearAll(): void {
+    this.db.prepare(`DELETE FROM memory_edges`).run();
+    this.db.prepare(`DELETE FROM memories`).run();
+    this.db.prepare(`DELETE FROM profile`).run();
+  }
+
   isOpen(): boolean {
     if (this.closed) return false;
     try {

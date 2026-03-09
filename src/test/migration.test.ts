@@ -26,14 +26,18 @@ import { detectDimensionMismatch, recordDimension, type ProfileData } from '../m
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('migration — first-run dimension recording', () => {
-  it('records dimension in profile when DB is fresh', () => {
+// Note: MemoryProvider.checkDimensionMigration() returns early when count===0
+// (fresh DB), so it does not call recordDimension on the very first run.
+// These tests exercise the recordDimension helper directly, documenting
+// its contract independently of the MemoryProvider lifecycle.
+describe('migration — recordDimension helper', () => {
+  it('records the embedding dimension into profile.facts', () => {
     const profile: ProfileData = { facts: [], capture_count: 0 };
     const updated = recordDimension(profile, 384);
     expect(updated.facts).toContain('embedding_dimension:384');
   });
 
-  it('does not duplicate the dimension fact on second call', () => {
+  it('does not duplicate the dimension fact on repeated calls', () => {
     let profile: ProfileData = { facts: [], capture_count: 0 };
     profile = recordDimension(profile, 384);
     profile = recordDimension(profile, 384);
@@ -41,7 +45,7 @@ describe('migration — first-run dimension recording', () => {
     expect(count).toBe(1);
   });
 
-  it('standard dimension 384 (bge-small-en-v1.5) is recorded by default', () => {
+  it('standard dimension 384 (bge-small-en-v1.5) is recorded correctly', () => {
     const profile: ProfileData = { facts: [], capture_count: 0 };
     const updated = recordDimension(profile, 384);
     expect(updated.facts).toContain('embedding_dimension:384');

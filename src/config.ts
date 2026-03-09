@@ -23,11 +23,20 @@ export interface SuperlocalmemoryConfig {
 export function getConfig(): SuperlocalmemoryConfig {
   const cfg = vscode.workspace.getConfiguration('superlocalmemory');
 
-  // Parse serviceEnv: expect a JSON object string or plain object
+  // serviceEnv may be stored as a plain object (VS Code settings) or a JSON string
   let serviceEnv: Record<string, string> = {};
   const rawEnv = cfg.get<unknown>('serviceEnv');
   if (rawEnv && typeof rawEnv === 'object' && !Array.isArray(rawEnv)) {
     serviceEnv = rawEnv as Record<string, string>;
+  } else if (typeof rawEnv === 'string' && rawEnv.trim().length > 0) {
+    try {
+      const parsed: unknown = JSON.parse(rawEnv);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        serviceEnv = parsed as Record<string, string>;
+      }
+    } catch {
+      // Invalid JSON — fall back to empty env and let the user know via a no-op
+    }
   }
 
   return {

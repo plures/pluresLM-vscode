@@ -50,7 +50,7 @@ export function registerLanguageModelTools(context: vscode.ExtensionContext, mem
   }
 
   // Register under plureslm_* names (current MCP surface)
-  context.subscriptions.push(lmAny.registerTool('plureslm_search', new SearchMemoryTool(memory)));
+  context.subscriptions.push(lmAny.registerTool('plureslm_search_text', new SearchMemoryTool(memory)));
   context.subscriptions.push(lmAny.registerTool('plureslm_store', new StoreMemoryTool(memory)));
 
   // Keep legacy names registered for one release cycle (backwards compatibility)

@@ -5,12 +5,14 @@
  * store / search / stats / forget calls through it via MCP tool-call requests.
  *
  * Synchronous list/stats methods return stale-while-revalidate cached data;
- * the cache is refreshed after every mutating call and on a periodic timer.
+ * the cache is refreshed after every mutating call and on demand.
  */
 
 import { spawn, ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import * as vscode from 'vscode';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const PKG = require('../package.json') as { version: string };
 
 import type {
   IMemoryProvider,
@@ -56,6 +58,7 @@ export class PluresLMServiceClient implements IMemoryProvider {
   private pending = new Map<number, PendingRequest>();
   private lineBuffer = '';
   private _ready = false;
+  private _closed = false;
 
   // Stale-while-revalidate cache for sync methods
   private _stats: StatsResult = { totalMemories: 0, categories: {}, edgeCount: 0, lastCaptureTime: null };
@@ -74,12 +77,18 @@ export class PluresLMServiceClient implements IMemoryProvider {
   // ─── Lifecycle ─────────────────────────────────────────────────────────────
 
   async ensureInitialized(): Promise<void> {
+    if (this._closed) throw new Error('Service client is closed');
     if (this._ready && this.process && !this.process.killed) return;
     await this._startProcess();
   }
 
   close(): void {
+    this._closed = true;
     this._ready = false;
+    if (this._refreshTimer !== null) {
+      clearTimeout(this._refreshTimer);
+      this._refreshTimer = null;
+    }
     if (this.process && !this.process.killed) {
       try {
         this.process.kill();
@@ -120,7 +129,7 @@ export class PluresLMServiceClient implements IMemoryProvider {
 
   async search(query: string, limit?: number): Promise<MemorySearchResult[]> {
     const cfg = await import('./config').then(m => m.getConfig());
-    const text = await this._callTool('plureslm_search', { query, limit: limit ?? cfg.maxRecallResults });
+    const text = await this._callTool('plureslm_search_text', { query, limit: limit ?? cfg.maxRecallResults });
     try {
       return JSON.parse(text) as MemorySearchResult[];
     } catch {
@@ -129,16 +138,23 @@ export class PluresLMServiceClient implements IMemoryProvider {
   }
 
   async forgetByQuery(query: string, threshold: number = 0.8): Promise<number> {
-    const text = await this._callTool('plureslm_forget', { query, threshold });
-    void this._scheduleRefresh();
+    // plureslm_forget is not part of the current MCP surface; attempt it and
+    // degrade gracefully if the service returns a tool-not-found error.
     try {
-      const parsed: unknown = JSON.parse(text);
-      if (typeof parsed === 'number') return parsed;
-      if (parsed && typeof parsed === 'object' && 'deleted' in parsed) {
-        return (parsed as { deleted: number }).deleted;
+      const text = await this._callTool('plureslm_forget', { query, threshold });
+      void this._scheduleRefresh();
+      try {
+        const parsed: unknown = JSON.parse(text);
+        if (typeof parsed === 'number') return parsed;
+        if (parsed && typeof parsed === 'object' && 'deleted' in parsed) {
+          return (parsed as { deleted: number }).deleted;
+        }
+        return 0;
+      } catch {
+        return 0;
       }
-      return 0;
-    } catch {
+    } catch (err) {
+      this.log(`forgetByQuery not supported by this service version: ${String(err)}`);
       return 0;
     }
   }
@@ -275,18 +291,21 @@ export class PluresLMServiceClient implements IMemoryProvider {
   // ─── Cache management ──────────────────────────────────────────────────────
 
   private _refreshScheduled = false;
+  private _refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
   private _scheduleRefresh(): void {
-    if (this._refreshScheduled) return;
+    if (this._closed || this._refreshScheduled) return;
     this._refreshScheduled = true;
     // Slight delay so multiple rapid mutations batch into one refresh
-    setTimeout(() => {
+    this._refreshTimer = setTimeout(() => {
+      this._refreshTimer = null;
       this._refreshScheduled = false;
-      void this._refreshCache();
+      if (!this._closed) void this._refreshCache();
     }, 200);
   }
 
   private async _refreshCache(): Promise<void> {
+    if (this._closed) return;
     try {
       await this.ensureInitialized();
 
@@ -344,18 +363,45 @@ export class PluresLMServiceClient implements IMemoryProvider {
 
     this.log(`Spawning: ${this.command} ${this.args.join(' ')}`);
 
-    let proc: ChildProcess;
-    try {
-      proc = spawn(this.command, this.args, {
-        env: { ...process.env, ...this.env },
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
-    } catch (err) {
-      throw new Error(
-        `Failed to spawn '${this.command}': ${String(err)}\n` +
-        `Make sure plureslm-service is installed: npm install -g plureslm-service`
-      );
-    }
+    // spawn() itself rarely throws synchronously; ENOENT and permission errors
+    // arrive via the child process 'error' event.  We wrap both paths into a
+    // single Promise so callers always get a clean rejection with an actionable
+    // message when the binary is missing.
+    const proc = await new Promise<ChildProcess>((resolve, reject) => {
+      let spawnedProc: ChildProcess;
+      try {
+        spawnedProc = spawn(this.command, this.args, {
+          env: { ...process.env, ...this.env },
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+      } catch (err) {
+        reject(new Error(
+          `Failed to spawn '${this.command}': ${String(err)}\n` +
+          `Make sure plureslm-service is installed: npm install -g plureslm-service`
+        ));
+        return;
+      }
+
+      // Resolve as soon as the process is open (stdout readable) or reject on
+      // early error (e.g. ENOENT when the binary doesn't exist).
+      const onError = (err: Error): void => {
+        spawnedProc.removeListener('spawn', onSpawn);
+        const isNotFound = (err as NodeJS.ErrnoException).code === 'ENOENT';
+        reject(new Error(
+          isNotFound
+            ? `Command not found: '${this.command}'. ` +
+              `Make sure plureslm-service is installed: npm install -g plureslm-service`
+            : `Failed to start '${this.command}': ${String(err)}`
+        ));
+      };
+      const onSpawn = (): void => {
+        spawnedProc.removeListener('error', onError);
+        resolve(spawnedProc);
+      };
+
+      spawnedProc.once('error', onError);
+      spawnedProc.once('spawn', onSpawn);
+    });
 
     this.process = proc;
 
@@ -391,7 +437,7 @@ export class PluresLMServiceClient implements IMemoryProvider {
     await this._sendRequest('initialize', {
       protocolVersion: '2024-11-05',
       capabilities: {},
-      clientInfo: { name: 'pluresLM-vscode', version: '0.3.0' }
+      clientInfo: { name: 'PluresLM-vscode', version: PKG.version }
     });
 
     this._ready = true;

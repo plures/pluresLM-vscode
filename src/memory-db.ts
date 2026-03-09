@@ -65,7 +65,8 @@ export class MemoryDB {
   constructor(dbPath: string, _vectorDimension: number) {
     this.dbPath = dbPath;
     const Database = requireDatabase();
-    this.db = new Database(dbPath);    this.db.pragma('journal_mode = WAL');
+    this.db = new Database(dbPath);
+    this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');
     this.init();
   }

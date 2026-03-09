@@ -2,7 +2,7 @@
   "name": "superlocalmemory",
   "displayName": "PluresLM — AI Memory for Copilot",
   "description": "Persistent vector memory for GitHub Copilot Chat. Remember context across sessions.",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "publisher": "plures",
   "license": "AGPL-3.0",
   "repository": {
@@ -216,7 +216,7 @@
     ],
     "languageModelTools": [
       {
-        "name": "plureslm_search",
+        "name": "plureslm_search_text",
         "displayName": "Search Memory",
         "modelDescription": "Search the user's persistent long-term memory for relevant past context, decisions, code patterns, and error fixes. Use this to recall information from previous sessions.",
         "inputSchema": {
@@ -256,7 +256,7 @@
       {
         "name": "superlocalmemory_search",
         "displayName": "Search Memory (legacy)",
-        "modelDescription": "Deprecated alias for plureslm_search. Use plureslm_search instead.",
+        "modelDescription": "Deprecated alias for plureslm_search_text. Use plureslm_search_text instead.",
         "inputSchema": {
           "type": "object",
           "properties": {

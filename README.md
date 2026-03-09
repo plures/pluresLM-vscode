@@ -18,7 +18,7 @@ This extension adds:
 | What changed | v0.2 | v0.3 |
 |---|---|---|
 | Storage backend | `better-sqlite3` (bundled) | `plureslm-service` (external, MCP) |
-| LM tool names | `superlocalmemory_search` / `_store` | `plureslm_search` / `plureslm_store` |
+| LM tool names | `superlocalmemory_search` / `_store` | `plureslm_search_text` / `plureslm_store` |
 | Default mode | local SQLite | service (falls back to legacy if service unavailable) |
 | `better-sqlite3` dep | required | optional (only for legacy mode) |
 
@@ -69,7 +69,7 @@ Use in Copilot Chat:
 
 ### Copilot agent mode tools
 This extension contributes tools declared in `package.json`:
-- `plureslm_search` *(primary, aligned with MCP surface)*
+- `plureslm_search_text` *(primary, aligned with MCP surface)*
 - `plureslm_store`  *(primary, aligned with MCP surface)*
 - `superlocalmemory_search` *(legacy alias, deprecated — remove in v0.4)*
 - `superlocalmemory_store` *(legacy alias, deprecated — remove in v0.4)*

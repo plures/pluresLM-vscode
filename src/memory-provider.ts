@@ -72,11 +72,28 @@ export class MemoryProvider implements IMemoryProvider {
         log?.appendLine('[superlocalmemory] Service mode active.');
         return client;
       } catch (err) {
+        // Clean up any partially-started service process before falling back.
+        try {
+          client.close();
+        } catch {
+          // Swallow cleanup errors; the original initialization error is more important.
+        }
         log?.appendLine(
           `[superlocalmemory] Service unavailable (${String(err)}). ` +
           `Falling back to legacy local mode. Set "superlocalmemory.mode": "legacy" to suppress this warning.`
         );
-        // Fall through to legacy
+        // Explicitly attempt legacy initialization and surface a clearer error if it also fails.
+        try {
+          return await MemoryProvider.getInstance(log);
+        } catch (legacyErr) {
+          log?.appendLine(
+            `[superlocalmemory] Legacy local mode initialization also failed (${String(legacyErr)}). Extension cannot start.`
+          );
+          throw new Error(
+            `Failed to initialize memory provider in both service and legacy modes. ` +
+            `Service error: ${String(err)}; legacy error: ${String(legacyErr)}`
+          );
+        }
       }
     }
     return MemoryProvider.getInstance(log);

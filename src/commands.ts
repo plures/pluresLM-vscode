@@ -295,21 +295,30 @@ export function registerCommands(context: vscode.ExtensionContext, memory: Memor
       });
       if (!uris || uris.length === 0) return;
 
-      // Parse just the header to show a preview before confirming
+      // Parse just the header to show a preview before confirming; abort on malformed input
       let preview = '';
       try {
-        const { default: fs } = await import('node:fs');
-        const raw = fs.readFileSync(uris[0].fsPath, 'utf-8');
-        const parsed = JSON.parse(raw);
-        if (parsed.type !== 'pack') {
+        const { promises: fsp } = await import('node:fs');
+        const raw = await fsp.readFile(uris[0].fsPath, 'utf-8');
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        if (parsed['type'] !== 'pack') {
           vscode.window.showErrorMessage(
-            `This file is a "${parsed.type}", not a pack. Use "Restore Memory Bundle" for bundle files.`
+            `This file is a "${String(parsed['type'])}", not a pack. Use "Restore Memory Bundle" for bundle files.`
           );
           return;
         }
-        preview = `Pack: "${parsed.name}" — ${(parsed.entries as unknown[]).length} entries`;
-      } catch {
-        preview = path.basename(uris[0].fsPath);
+        if (typeof parsed['name'] !== 'string' || !(parsed['name'] as string).trim()) {
+          vscode.window.showErrorMessage('Selected file is not a valid memory pack: missing "name" field.');
+          return;
+        }
+        if (!Array.isArray(parsed['entries'])) {
+          vscode.window.showErrorMessage('Selected file is not a valid memory pack: missing "entries" array.');
+          return;
+        }
+        preview = `Pack: "${parsed['name'] as string}" — ${(parsed['entries'] as unknown[]).length} entries`;
+      } catch (err) {
+        vscode.window.showErrorMessage(`Could not read pack file: ${err instanceof Error ? err.message : String(err)}`);
+        return;
       }
 
       const confirm = await vscode.window.showInformationMessage(

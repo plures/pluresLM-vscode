@@ -370,6 +370,21 @@ export class MemoryDB {
     }));
   }
 
+  storeRawById(entry: Omit<MemoryEntry, 'embedding'>): void {
+    this.db
+      .prepare(
+        `INSERT OR REPLACE INTO memories (id, content, embedding, created_at, source, tags, category) VALUES (?, ?, NULL, ?, ?, ?, ?)`
+      )
+      .run(
+        entry.id,
+        entry.content,
+        entry.created_at,
+        entry.source ?? '',
+        JSON.stringify(entry.tags ?? []),
+        entry.category ?? 'other'
+      );
+  }
+
   storeRaw(entry: Omit<MemoryEntry, 'embedding'>): boolean {
     const existing = this.db.prepare(`SELECT id FROM memories WHERE id = ?`).get(entry.id) as { id: string } | undefined;
 

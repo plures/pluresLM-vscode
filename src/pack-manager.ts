@@ -10,7 +10,7 @@
  *   Pack:   <name>.memorypack.json
  */
 
-import * as fs from 'node:fs';
+import { promises as fsp } from 'node:fs';
 import type { ProfileData } from './memory-provider';
 import type { MemoryEntry } from './memory-db';
 
@@ -96,7 +96,7 @@ export class PackManager {
       profile
     };
 
-    fs.writeFileSync(filePath, JSON.stringify(bundle, null, 2), 'utf-8');
+    await fsp.writeFile(filePath, JSON.stringify(bundle, null, 2), 'utf-8');
     return { count: entries.length };
   }
 
@@ -107,7 +107,7 @@ export class PackManager {
    */
   async restoreBundle(filePath: string): Promise<{ restored: number; skipped: number }> {
     // Parse and validate before touching the DB to prevent data loss on bad input
-    const raw = fs.readFileSync(filePath, 'utf-8');
+    const raw = await fsp.readFile(filePath, 'utf-8');
     const bundle = JSON.parse(raw) as AnyPackFile;
 
     if (bundle.type !== 'bundle') {
@@ -175,7 +175,7 @@ export class PackManager {
       entries
     };
 
-    fs.writeFileSync(filePath, JSON.stringify(pack, null, 2), 'utf-8');
+    await fsp.writeFile(filePath, JSON.stringify(pack, null, 2), 'utf-8');
     return { count: entries.length };
   }
 
@@ -186,7 +186,7 @@ export class PackManager {
    * Embeddings are re-generated so the entries are immediately searchable.
    */
   async importPack(filePath: string): Promise<{ packName: string; imported: number; skipped: number }> {
-    const raw = fs.readFileSync(filePath, 'utf-8');
+    const raw = await fsp.readFile(filePath, 'utf-8');
     const pack = JSON.parse(raw) as AnyPackFile;
 
     if (pack.type !== 'pack') {
@@ -196,9 +196,17 @@ export class PackManager {
       );
     }
 
+    const packFile = pack as MemoryPackFile;
+
+    if (typeof packFile.name !== 'string' || !packFile.name.trim()) {
+      throw new Error('Invalid pack file: missing or empty "name" field.');
+    }
+    if (!Array.isArray(packFile.entries)) {
+      throw new Error('Invalid pack file: missing or malformed "entries" array.');
+    }
+
     await this.memory.ensureInitialized();
 
-    const packFile = pack as MemoryPackFile;
     const source = `${PACK_SOURCE_PREFIX}${packFile.name}`;
 
     // Tag all entries with the pack source so they can be uninstalled atomically

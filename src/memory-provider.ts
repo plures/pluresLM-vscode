@@ -175,18 +175,17 @@ export class MemoryProvider {
 
   /**
    * Import entries without embeddings (entries stored but not immediately vector-searchable).
-   * Returns counts of imported vs skipped (duplicates).
+   * Uses ID-based upsert so bundle restores are faithful: distinct memories with identical
+   * content are all preserved, uniqueness is enforced by ID only.
    */
   importEntries(entries: Array<Omit<MemoryEntry, 'embedding'>>): { imported: number; skipped: number } {
     if (!this.db) throw new Error('MemoryProvider not initialized');
     let imported = 0;
-    let skipped = 0;
     for (const entry of entries) {
-      const stored = this.db.storeRaw(entry);
-      if (stored) imported++;
-      else skipped++;
+      this.db.storeRawById(entry);
+      imported++;
     }
-    return { imported, skipped };
+    return { imported, skipped: 0 };
   }
 
   /**

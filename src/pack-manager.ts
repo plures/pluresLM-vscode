@@ -11,10 +11,42 @@
  */
 
 import * as fs from 'node:fs';
-import type { MemoryProvider, ProfileData } from './memory-provider';
+import type { ProfileData } from './memory-provider';
 import type { MemoryEntry } from './memory-db';
 
 export type PackEntryData = Omit<MemoryEntry, 'embedding'>;
+
+/**
+ * Minimal provider interface required by PackManager.
+ *
+ * MemoryProvider (legacy/SQLite mode) satisfies this interface.
+ * PluresLMServiceClient (service mode) does NOT yet implement pack operations;
+ * use `isPackCapable()` to check at runtime before constructing PackManager.
+ */
+export interface IPackProvider {
+  ensureInitialized(): Promise<void>;
+  getAllEntries(): Array<Omit<MemoryEntry, 'embedding'>>;
+  getProfile(): ProfileData | null;
+  clearAll(): void;
+  importEntries(entries: Array<Omit<MemoryEntry, 'embedding'>>): { imported: number; skipped: number };
+  importEntriesWithEmbeddings(entries: Array<Omit<MemoryEntry, 'embedding'>>): Promise<{ imported: number; skipped: number }>;
+  setProfile(profile: ProfileData | null): void;
+  listSources(): Array<{ source: string; count: number }>;
+  deleteSource(source: string): number | Promise<number>;
+}
+
+/**
+ * Runtime guard — returns true when the provider exposes pack-capable operations.
+ * In service mode (post-#14 rebase) these methods are absent; callers should
+ * show a user-friendly error and bail out.
+ */
+export function isPackCapable(provider: unknown): provider is IPackProvider {
+  return (
+    typeof (provider as IPackProvider).getAllEntries === 'function' &&
+    typeof (provider as IPackProvider).clearAll === 'function' &&
+    typeof (provider as IPackProvider).importEntries === 'function'
+  );
+}
 
 export interface MemoryBundleFile {
   version: '1';
@@ -44,7 +76,7 @@ export interface PackInfo {
 const PACK_SOURCE_PREFIX = 'pack:';
 
 export class PackManager {
-  constructor(private readonly memory: MemoryProvider) {}
+  constructor(private readonly memory: IPackProvider) {}
 
   // ---------------------------------------------------------------------------
   // Bundle operations
@@ -196,8 +228,8 @@ export class PackManager {
    * Remove all memories belonging to a pack.
    * @param packName  The pack name (without the `pack:` prefix).
    */
-  uninstallPack(packName: string): number {
+  async uninstallPack(packName: string): Promise<number> {
     const source = `${PACK_SOURCE_PREFIX}${packName}`;
-    return this.memory.deleteSource(source);
+    return await this.memory.deleteSource(source);
   }
 }

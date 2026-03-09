@@ -2,10 +2,21 @@ import * as vscode from 'vscode';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { MemoryProvider, MemoryCategory, MemoryEntry } from './memory-provider';
-import { PackManager } from './pack-manager';
+import { PackManager, isPackCapable } from './pack-manager';
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/** Returns a PackManager when the provider supports pack operations, or shows an error and returns null. */
+function packManager(memory: MemoryProvider): PackManager | null {
+  if (!isPackCapable(memory)) {
+    vscode.window.showErrorMessage(
+      'Pack/bundle operations require legacy mode. Set "superlocalmemory.mode": "legacy" in settings.'
+    );
+    return null;
+  }
+  return new PackManager(memory);
 }
 
 export function registerCommands(context: vscode.ExtensionContext, memory: MemoryProvider, refreshUI?: () => void): void {
@@ -166,13 +177,14 @@ export function registerCommands(context: vscode.ExtensionContext, memory: Memor
     })
   );
 
-  const packs = new PackManager(memory);
-
   // ---------------------------------------------------------------------------
   // Export Bundle
   // ---------------------------------------------------------------------------
   context.subscriptions.push(
     vscode.commands.registerCommand('superlocalmemory.exportBundle', async () => {
+      const packs = packManager(memory);
+      if (!packs) return;
+
       const defaultName = `memory-bundle-${todayIso()}.memorybundle.json`;
       const uri = await vscode.window.showSaveDialog({
         defaultUri: vscode.Uri.file(path.join(os.homedir(), defaultName)),
@@ -195,6 +207,9 @@ export function registerCommands(context: vscode.ExtensionContext, memory: Memor
   // ---------------------------------------------------------------------------
   context.subscriptions.push(
     vscode.commands.registerCommand('superlocalmemory.restoreBundle', async () => {
+      const packs = packManager(memory);
+      if (!packs) return;
+
       const uris = await vscode.window.showOpenDialog({
         filters: { 'Memory Bundle': ['memorybundle.json', 'json'] },
         canSelectMany: false,
@@ -227,6 +242,9 @@ export function registerCommands(context: vscode.ExtensionContext, memory: Memor
   // ---------------------------------------------------------------------------
   context.subscriptions.push(
     vscode.commands.registerCommand('superlocalmemory.exportPack', async () => {
+      const packs = packManager(memory);
+      if (!packs) return;
+
       const packName = await vscode.window.showInputBox({
         title: 'Export Memory Pack',
         prompt: 'Pack name (used when the pack is imported)',
@@ -267,6 +285,9 @@ export function registerCommands(context: vscode.ExtensionContext, memory: Memor
   // ---------------------------------------------------------------------------
   context.subscriptions.push(
     vscode.commands.registerCommand('superlocalmemory.importPack', async () => {
+      const packs = packManager(memory);
+      if (!packs) return;
+
       const uris = await vscode.window.showOpenDialog({
         filters: { 'Memory Pack': ['memorypack.json', 'json'] },
         canSelectMany: false,
@@ -320,6 +341,9 @@ export function registerCommands(context: vscode.ExtensionContext, memory: Memor
   // ---------------------------------------------------------------------------
   context.subscriptions.push(
     vscode.commands.registerCommand('superlocalmemory.listPacks', async () => {
+      const packs = packManager(memory);
+      if (!packs) return;
+
       const installed = packs.listPacks();
       if (installed.length === 0) {
         vscode.window.showInformationMessage('No memory packs installed.');
@@ -341,6 +365,9 @@ export function registerCommands(context: vscode.ExtensionContext, memory: Memor
   // ---------------------------------------------------------------------------
   context.subscriptions.push(
     vscode.commands.registerCommand('superlocalmemory.uninstallPack', async () => {
+      const packs = packManager(memory);
+      if (!packs) return;
+
       const installed = packs.listPacks();
       if (installed.length === 0) {
         vscode.window.showInformationMessage('No memory packs installed.');
@@ -360,7 +387,7 @@ export function registerCommands(context: vscode.ExtensionContext, memory: Memor
       );
       if (confirm !== 'Uninstall') return;
 
-      const deleted = packs.uninstallPack(picked.label);
+      const deleted = await packs.uninstallPack(picked.label);
       vscode.window.showInformationMessage(`Pack "${picked.label}" uninstalled (${deleted} memories removed).`);
       refreshUI?.();
     })

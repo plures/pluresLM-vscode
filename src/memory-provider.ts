@@ -5,13 +5,82 @@ import * as fs from 'node:fs';
 
 import { getConfig } from './config';
 import { MemoryDB, MemoryEntry, MemorySearchResult } from './memory-db';
-export type { MemoryEntry };
+export type { MemoryEntry, MemorySearchResult };
 import { DualEmbeddings } from './embeddings';
 
 export type MemoryCategory = 'decision' | 'preference' | 'code-pattern' | 'error-fix' | 'architecture' | 'other';
 
-export class MemoryProvider {
+export interface StatsResult {
+  totalMemories: number;
+  categories: Record<string, number>;
+  edgeCount: number;
+  lastCaptureTime: number | null;
+}
+
+/**
+ * Unified provider interface.  Both service-mode and legacy-mode implementations satisfy this contract.
+ * Synchronous list/stats methods return cached data in service mode (stale-while-revalidate).
+ */
+export interface IMemoryProvider {
+  // Core operations (async)
+  store(content: string, category?: MemoryCategory, source?: string, tags?: string[]): Promise<MemoryEntry>;
+  search(query: string, limit?: number): Promise<MemorySearchResult[]>;
+  forgetByQuery(query: string, threshold?: number): Promise<number>;
+  forgetById(id: string): boolean | Promise<boolean>;
+  deleteSource(source: string): number | Promise<number>;
+  indexWorkspace(opts?: { maxFiles?: number; maxCharsPerFile?: number }): Promise<{ indexed: number; skipped: number }>;
+
+  // Stats / counts (sync, cached in service mode)
+  stats(): StatsResult;
+  count(): number;
+
+  // Listing (sync, cached in service mode; may return [] until first cache fill)
+  listSources(): Array<{ source: string; count: number }>;
+  listByCategory(category: string, limit?: number): Array<Omit<MemoryEntry, 'embedding'>>;
+  listBySource(source: string, limit?: number): Array<Omit<MemoryEntry, 'embedding'>>;
+  listAllTags(): Array<{ tag: string; count: number }>;
+  listByTag(tag: string, limit?: number): Array<Omit<MemoryEntry, 'embedding'>>;
+  listByDateRange(start: number, end: number, limit?: number): Array<Omit<MemoryEntry, 'embedding'>>;
+
+  // Lifecycle
+  ensureInitialized(): Promise<void>;
+  close(): void;
+}
+
+
+export class MemoryProvider implements IMemoryProvider {
   private static _instance: MemoryProvider | null = null;
+
+  /**
+   * Factory: returns service-mode or legacy-mode provider based on config.
+   * Call this from extension.ts instead of MemoryProvider.getInstance().
+   */
+  static async create(log?: vscode.OutputChannel): Promise<IMemoryProvider> {
+    const cfg = getConfig();
+    if (cfg.mode === 'service') {
+      // Import lazily to avoid pulling in child_process/spawn at startup in legacy mode
+      const { PluresLMServiceClient } = await import('./service-client');
+      const client = new PluresLMServiceClient(
+        cfg.serviceCommand,
+        cfg.serviceArgs,
+        cfg.serviceEnv,
+        cfg.serviceTimeout,
+        (msg) => log?.appendLine(`[plureslm-service] ${msg}`)
+      );
+      try {
+        await client.ensureInitialized();
+        log?.appendLine('[superlocalmemory] Service mode active.');
+        return client;
+      } catch (err) {
+        log?.appendLine(
+          `[superlocalmemory] Service unavailable (${String(err)}). ` +
+          `Falling back to legacy local mode. Set "superlocalmemory.mode": "legacy" to suppress this warning.`
+        );
+        // Fall through to legacy
+      }
+    }
+    return MemoryProvider.getInstance(log);
+  }
 
   static async getInstance(log?: vscode.OutputChannel): Promise<MemoryProvider> {
     if (!this._instance) {

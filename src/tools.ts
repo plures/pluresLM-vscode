@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { MemoryProvider } from './memory-provider';
+import { IMemoryProvider } from './memory-provider';
 
 class SearchMemoryTool implements vscode.LanguageModelTool<{ query: string }> {
-  constructor(private memory: MemoryProvider) {}
+  constructor(private memory: IMemoryProvider) {}
 
   async invoke(
     options: vscode.LanguageModelToolInvocationOptions<{ query: string }>,
@@ -24,7 +24,7 @@ class SearchMemoryTool implements vscode.LanguageModelTool<{ query: string }> {
 }
 
 class StoreMemoryTool implements vscode.LanguageModelTool<{ content: string; category?: string }> {
-  constructor(private memory: MemoryProvider) {}
+  constructor(private memory: IMemoryProvider) {}
 
   async invoke(
     options: vscode.LanguageModelToolInvocationOptions<{ content: string; category?: string }>,
@@ -42,13 +42,18 @@ class StoreMemoryTool implements vscode.LanguageModelTool<{ content: string; cat
   }
 }
 
-export function registerLanguageModelTools(context: vscode.ExtensionContext, memory: MemoryProvider): void {
+export function registerLanguageModelTools(context: vscode.ExtensionContext, memory: IMemoryProvider): void {
   const lmAny = (vscode as any).lm;
   if (!lmAny?.registerTool) {
     // Older VS Code without LM tools API.
     return;
   }
 
+  // Register under plureslm_* names (current MCP surface)
+  context.subscriptions.push(lmAny.registerTool('plureslm_search', new SearchMemoryTool(memory)));
+  context.subscriptions.push(lmAny.registerTool('plureslm_store', new StoreMemoryTool(memory)));
+
+  // Keep legacy names registered for one release cycle (backwards compatibility)
   context.subscriptions.push(lmAny.registerTool('superlocalmemory_search', new SearchMemoryTool(memory)));
   context.subscriptions.push(lmAny.registerTool('superlocalmemory_store', new StoreMemoryTool(memory)));
 }

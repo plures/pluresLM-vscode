@@ -1,11 +1,25 @@
 /**
- * Memory storage layer using better-sqlite3
+ * Memory storage layer using better-sqlite3 (legacy mode only).
  *
- * Copied from superlocalmemory plugin to keep this extension self-contained.
+ * better-sqlite3 is loaded lazily so this module can be imported even when the
+ * package is not installed (service mode).  Attempting to instantiate MemoryDB
+ * without better-sqlite3 present will throw a clear error.
  */
 
-import Database from 'better-sqlite3';
 import { randomUUID } from 'node:crypto';
+
+function requireDatabase(): typeof import('better-sqlite3') {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('better-sqlite3') as typeof import('better-sqlite3');
+  } catch {
+    throw new Error(
+      'better-sqlite3 is required for legacy mode but is not installed.\n' +
+      'Either install it (`npm install better-sqlite3`) or switch to service mode:\n' +
+      '  "superlocalmemory.mode": "service" in VS Code settings.'
+    );
+  }
+}
 
 export interface MemoryEntry {
   id: string;
@@ -44,14 +58,14 @@ function cosineSimilarity(a: number[], b: number[]): number {
 }
 
 export class MemoryDB {
-  private db: Database.Database;
+  private db: import('better-sqlite3').Database;
   private dbPath: string;
   private closed = false;
 
   constructor(dbPath: string, _vectorDimension: number) {
     this.dbPath = dbPath;
-    this.db = new Database(dbPath);
-    this.db.pragma('journal_mode = WAL');
+    const Database = requireDatabase();
+    this.db = new Database(dbPath);    this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');
     this.init();
   }
@@ -529,6 +543,7 @@ export class MemoryDB {
       // ignore
     }
 
+    const Database = requireDatabase();
     this.db = new Database(this.dbPath);
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');

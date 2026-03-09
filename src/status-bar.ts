@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
-import { MemoryProvider } from './memory-provider';
+import { IMemoryProvider } from './memory-provider';
 
 export class MemoryStatusBar {
   private item: vscode.StatusBarItem;
   private timer: NodeJS.Timeout | null = null;
 
-  constructor(private memory: MemoryProvider) {
+  constructor(private memory: IMemoryProvider) {
     this.item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     this.item.command = 'superlocalmemory.stats';
     this.item.tooltip = 'Superlocalmemory: show stats';

@@ -4,6 +4,11 @@ Runnable QA matrix for **pluresLM-vscode** service-mode behavior.
 All checks are automated via `npm test` (vitest).  
 Manual checks are marked **[MANUAL]**.
 
+> **Architecture note (PR #14):** Default mode is now service-first (`plureslm-service` MCP/stdio).
+> Legacy SQLite mode is opt-in via `superlocalmemory.mode: "legacy"`.
+> Primary LM tool names are `plureslm_search` / `plureslm_store`; legacy aliases
+> (`superlocalmemory_search` / `superlocalmemory_store`) remain for one release cycle.
+
 ---
 
 ## How to run
@@ -39,9 +44,20 @@ npm run test:coverage
 | S7 | `store()` still works when only search is faulted | `startup.test.ts` | automated |
 | S8 | `search()` returns empty when service is in empty mode | `startup.test.ts` | automated |
 | S9 | Multiple stores are cumulative (not reset) | `startup.test.ts` | automated |
-| S10 | **[MANUAL]** Extension activates without crash when `~/.superlocalmemory/` does not exist | — | manual |
-| S11 | **[MANUAL]** Extension shows status bar item within 5 s of activation | — | manual |
-| S12 | **[MANUAL]** Output channel logs "Superlocalmemory activated." | — | manual |
+| S10 | `ensureInitialized()` resolves without throwing on fresh service | `startup.test.ts` | automated |
+| S11 | `ensureInitialized()` is idempotent (safe to call multiple times) | `startup.test.ts` | automated |
+| S12 | `close()` does not throw on active service | `startup.test.ts` | automated |
+| S13 | Store succeeds after `ensureInitialized()` | `startup.test.ts` | automated |
+| S14 | `stats()` available immediately after `ensureInitialized()` | `startup.test.ts` | automated |
+| S15 | Service mode: provider initialises without SQLite dependency | `startup.test.ts` | automated |
+| S16 | Legacy mode fallback when `plureslm-service` not found | `startup.test.ts` | automated |
+| S17 | Service mode `store` follows `plureslm_store` param contract | `startup.test.ts` | automated |
+| S18 | Service mode `search` follows `plureslm_search` param contract | `startup.test.ts` | automated |
+| S19 | `stats()` shape matches `plureslm_stats` response contract | `startup.test.ts` | automated |
+| S20 | **[MANUAL]** Extension activates without crash when `~/.superlocalmemory/` does not exist | — | manual |
+| S21 | **[MANUAL]** Extension shows status bar item within 5 s of activation | — | manual |
+| S22 | **[MANUAL]** Output channel logs "Service mode active." when `plureslm-service` is available | — | manual |
+| S23 | **[MANUAL]** Output channel logs fallback warning when `plureslm-service` is not installed | — | manual |
 
 ---
 
@@ -103,6 +119,9 @@ npm run test:coverage
 
 ### 4. MCP Pack Operations (LM Tools / Copilot Agent Mode)
 
+> **Service-mode alignment:** Primary tool names are `plureslm_search` / `plureslm_store`.
+> Legacy aliases `superlocalmemory_search` / `superlocalmemory_store` remain for one release.
+
 | # | Scenario | Test file | Status |
 |---|----------|-----------|--------|
 | T1 | `SearchMemoryTool` returns formatted text when memories match | `lm-tools.test.ts` | automated |
@@ -120,8 +139,15 @@ npm run test:coverage
 | T13 | Sequential store calls accumulate without overwriting | `lm-tools.test.ts` | automated |
 | T14 | Search after bulk store returns relevant entries | `lm-tools.test.ts` | automated |
 | T15 | `deleteSource('vscode:lm-tool')` clears all LM-tool memories | `lm-tools.test.ts` | automated |
-| T16 | **[MANUAL]** Copilot agent mode invokes `superlocalmemory_search` tool | — | manual |
-| T17 | **[MANUAL]** Copilot agent mode invokes `superlocalmemory_store` tool | — | manual |
+| T16 | `plureslm_search` is the primary search tool name | `lm-tools.test.ts` | automated |
+| T17 | `plureslm_store` is the primary store tool name | `lm-tools.test.ts` | automated |
+| T18 | `superlocalmemory_search` is registered as a legacy alias | `lm-tools.test.ts` | automated |
+| T19 | `superlocalmemory_store` is registered as a legacy alias | `lm-tools.test.ts` | automated |
+| T20 | Primary and alias tool produce identical results | `lm-tools.test.ts` | automated |
+| T21 | MCP tool-call params (content, category) forwarded correctly | `lm-tools.test.ts` | automated |
+| T22 | **[MANUAL]** Copilot agent mode invokes `plureslm_search` tool | — | manual |
+| T23 | **[MANUAL]** Copilot agent mode invokes `plureslm_store` tool | — | manual |
+| T24 | **[MANUAL]** Legacy `superlocalmemory_search` alias still works in agent mode | — | manual |
 
 ---
 
@@ -193,7 +219,19 @@ const svc = new InMemoryService({
 
 ---
 
-### T005 — Dimension mismatch detected on every startup (manual)
+### T005 — Service mode: `plureslm-service` not found at activation (manual)
+
+**Symptom:** Output channel shows `Service unavailable (…). Falling back to legacy local mode.`  
+**Cause:** `plureslm-service` binary is not installed or not on `PATH`  
+**Steps to reproduce:**
+1. Ensure `plureslm-service` is not installed: `which plureslm-service` returns nothing
+2. Activate extension with default config (`superlocalmemory.mode: "service"`)
+3. Expected: warning logged, extension continues in legacy SQLite mode  
+**Fix:** Install the service (`npm install -g plureslm-service`) or set `superlocalmemory.mode: "legacy"` to explicitly use local mode
+
+---
+
+### T006 — Dimension mismatch detected on every startup (manual)
 
 **Symptom:** Output channel shows `⚠️ Dimension mismatch` on every activation  
 **Cause:** Profile `facts` array was not persisted after first-run recording  
@@ -207,7 +245,7 @@ const svc = new InMemoryService({
 
 ---
 
-### T006 — Chat participant `/recall` returns stale results (manual)
+### T007 — Chat participant `/recall` returns stale results (manual)
 
 **Symptom:** `/recall` returns memories that were already deleted via `/forget`  
 **Cause:** Possible cache in `MemoryProvider._instance` singleton  
@@ -219,18 +257,19 @@ const svc = new InMemoryService({
 
 ---
 
-### T007 — LM tools not appearing in Copilot agent mode (manual)
+### T008 — LM tools not appearing in Copilot agent mode (manual)
 
-**Symptom:** `superlocalmemory_search` / `superlocalmemory_store` not offered by Copilot  
+**Symptom:** `plureslm_search` / `plureslm_store` not offered by Copilot  
 **Cause:** VS Code version < 1.99 or the `vscode.lm.registerTool` API is absent  
 **Fix:**
 1. Confirm VS Code ≥ 1.99
 2. Check output channel for errors during activation
 3. Verify `package.json` `languageModelTools` contribution is present and matches tool names
+4. The primary names are `plureslm_search` and `plureslm_store` (post PR #14)
 
 ---
 
-### T008 — `deleteSource` deletes more entries than expected (manual)
+### T009 — `deleteSource` deletes more entries than expected (manual)
 
 **Symptom:** `deleteSource('vscode:index')` also removes `vscode:index:subfolder` entries  
 **Cause:** SQLite `WHERE source = ?` is exact; unlikely.  Check if source strings were stored with unexpected prefixes  
@@ -252,5 +291,5 @@ The following bugs and improvements were identified during QA and should be trac
 | BUG-002 | Dimension mismatch warning is not user-actionable — no button to trigger re-index | Medium | Switch OpenAI key, restart VS Code |
 | BUG-003 | `syncStatus` command shows hardcoded TODO message instead of real status | Medium | Run "Memory: Sync Status" |
 | BUG-004 | Auto-capture stores full file content (up to 1500 chars) on every save — no dedup guard between saves | Low | Save a file twice in quick succession |
-| ENH-001 | Add `superlocalmemory.serviceUrl` config for remote service mode (HTTP/MCP endpoint) | Enhancement | — |
-| ENH-002 | Expose `IMemoryService` interface publicly so third-party extensions can contribute memory backends | Enhancement | — |
+| ENH-001 | `superlocalmemory.mode: "service"` is now the default; add explicit warning in docs when `plureslm-service` is missing | Enhancement | — |
+| ENH-002 | Expose `IMemoryProvider` interface publicly so third-party extensions can contribute memory backends | Enhancement | — |

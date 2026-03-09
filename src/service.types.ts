@@ -1,9 +1,12 @@
 /**
- * IMemoryService — service-mode abstraction for memory operations.
+ * IMemoryProvider — unified service-mode abstraction for memory operations.
  *
  * Consumers (commands, chat-participant, tools) depend on this interface rather
- * than the concrete MemoryProvider so that tests can inject an in-memory mock
- * without any SQLite or embedding model dependency.
+ * than any concrete implementation so that tests can inject an in-memory mock
+ * without any SQLite, embedding model, or MCP service dependency.
+ *
+ * Both the legacy SQLite-backed MemoryProvider and the service-first
+ * PluresLMServiceClient (MCP/stdio) implement this contract.
  */
 
 import type { MemoryEntry, MemorySearchResult } from './memory-db';
@@ -11,16 +14,22 @@ export type { MemoryEntry, MemorySearchResult };
 
 export type MemoryCategory = 'decision' | 'preference' | 'code-pattern' | 'error-fix' | 'architecture' | 'other';
 
-export interface MemoryStats {
+/** Aggregate memory statistics (sync; may be stale-while-revalidate in service mode). */
+export interface StatsResult {
   totalMemories: number;
   categories: Record<string, number>;
   edgeCount: number;
   lastCaptureTime: number | null;
 }
 
-export interface IMemoryService {
+/** @deprecated Use `StatsResult` — kept for backwards compatibility within this PR cycle. */
+export type MemoryStats = StatsResult;
+
+export interface IMemoryProvider {
+  // ── Core async operations ─────────────────────────────────────────────────
+
   /** Store a new memory (or update a near-duplicate). */
-  store(content: string, category: MemoryCategory, source: string, tags: string[]): Promise<MemoryEntry>;
+  store(content: string, category?: MemoryCategory, source?: string, tags?: string[]): Promise<MemoryEntry>;
 
   /** Semantic search over stored memories. */
   search(query: string, limit?: number): Promise<MemorySearchResult[]>;
@@ -28,17 +37,30 @@ export interface IMemoryService {
   /** Delete memories whose embedding is within `threshold` of `query`. */
   forgetByQuery(query: string, threshold?: number): Promise<number>;
 
-  /** Delete a single memory by ID. */
-  forgetById(id: string): boolean;
+  /**
+   * Delete a single memory by ID.
+   * Returns `boolean | Promise<boolean>` — legacy mode is sync; service mode is async.
+   */
+  forgetById(id: string): boolean | Promise<boolean>;
 
-  /** Delete all memories from a named source. */
-  deleteSource(source: string): number;
+  /**
+   * Delete all memories from a named source.
+   * Returns `number | Promise<number>` — legacy mode is sync; service mode is async.
+   */
+  deleteSource(source: string): number | Promise<number>;
 
-  /** Aggregate statistics. */
-  stats(): MemoryStats;
+  /** Index the current VS Code workspace into memory. */
+  indexWorkspace(opts?: { maxFiles?: number; maxCharsPerFile?: number }): Promise<{ indexed: number; skipped: number }>;
 
-  /** Raw memory count. */
+  // ── Stats / counts (sync, cached in service mode) ─────────────────────────
+
+  /** Aggregate statistics. May return stale data in service mode until first cache fill. */
+  stats(): StatsResult;
+
+  /** Raw memory count (sync, cached). */
   count(): number;
+
+  // ── List operations (sync, cached in service mode) ────────────────────────
 
   /** List distinct sources with per-source counts. */
   listSources(): Array<{ source: string; count: number }>;
@@ -58,6 +80,14 @@ export interface IMemoryService {
   /** List memories in a timestamp range (inclusive). */
   listByDateRange(start: number, end: number, limit?: number): Array<Omit<MemoryEntry, 'embedding'>>;
 
-  /** Index the current VS Code workspace into memory. */
-  indexWorkspace(opts?: { maxFiles?: number; maxCharsPerFile?: number }): Promise<{ indexed: number; skipped: number }>;
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+  /** Ensure the provider is ready (opens DB or starts MCP service process). */
+  ensureInitialized(): Promise<void>;
+
+  /** Release resources (close DB connection or kill service process). */
+  close(): void;
 }
+
+/** @deprecated Use `IMemoryProvider` — kept for backwards compatibility within this PR cycle. */
+export type IMemoryService = IMemoryProvider;

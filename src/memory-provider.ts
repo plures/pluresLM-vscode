@@ -5,13 +5,14 @@ import * as fs from 'node:fs';
 
 import { getConfig } from './config';
 import { MemoryDB, MemoryEntry, MemorySearchResult } from './memory-db';
-export type { MemoryEntry };
+export type { MemoryEntry, MemorySearchResult };
 import { DualEmbeddings } from './embeddings';
-import type { IMemoryService, MemoryStats } from './service.types';
+import type { IMemoryProvider, MemoryCategory, StatsResult } from './service.types';
+export type { IMemoryProvider, StatsResult };
 
-export type MemoryCategory = 'decision' | 'preference' | 'code-pattern' | 'error-fix' | 'architecture' | 'other';
+export type { MemoryCategory };
 
-export class MemoryProvider implements IMemoryService {
+export class MemoryProvider implements IMemoryProvider {
   private static _instance: MemoryProvider | null = null;
 
   static async getInstance(log?: vscode.OutputChannel): Promise<MemoryProvider> {
@@ -117,7 +118,7 @@ export class MemoryProvider implements IMemoryService {
     return this.db?.count() ?? 0;
   }
 
-  stats(): MemoryStats {
+  stats(): StatsResult {
     return this.db?.stats() ?? { totalMemories: 0, categories: {}, edgeCount: 0, lastCaptureTime: null };
   }
 

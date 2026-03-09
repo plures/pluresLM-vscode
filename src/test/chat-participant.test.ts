@@ -2,7 +2,7 @@
  * QA Matrix — chat participant tool usage
  *
  * Tests the parseSlashCommand helper logic and the routing behaviour of the
- * @memory chat participant handler using a mock IMemoryService.  The VS Code
+ * @memory chat participant handler using a mock IMemoryProvider.  The VS Code
  * API is replaced by the lightweight mock in src/test/mocks/vscode.ts so no
  * VS Code host is required.
  *
@@ -18,7 +18,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { InMemoryService } from './mocks/memory-service.mock';
-import type { IMemoryService } from '../service.types';
+import type { IMemoryProvider } from '../service.types';
 
 // ---------------------------------------------------------------------------
 // Inline re-implementation of the chat participant command-routing logic
@@ -50,7 +50,7 @@ function makeStream(): StreamSpy {
 
 async function handleChat(
   text: string,
-  memory: IMemoryService,
+  memory: IMemoryProvider,
   stream: StreamSpy
 ): Promise<void> {
   const { command, args } = parseSlashCommand(text);

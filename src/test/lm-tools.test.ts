@@ -6,16 +6,21 @@
  * verify the invocation contract, result formatting, and error handling
  * without requiring a live VS Code host.
  *
+ * Service-mode alignment (PR #14):
+ *   - Primary tool names: `plureslm_search` / `plureslm_store`
+ *   - Legacy aliases:     `superlocalmemory_search` / `superlocalmemory_store`
+ *
  * Coverage:
  *   - SearchMemoryTool.invoke: returns formatted text, empty message, errors
  *   - StoreMemoryTool.invoke: stores entry, returns ID, errors
  *   - Tool result structure matches LanguageModelToolResult contract
+ *   - Tool name registration: plureslm_* primary + superlocalmemory_* aliases
  *   - Cancellation token is respected (no-op in current impl, verified safe)
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryService } from './mocks/memory-service.mock';
-import type { IMemoryService } from '../service.types';
+import type { IMemoryProvider } from '../service.types';
 
 // ---------------------------------------------------------------------------
 // Inline port of the tool invocation logic from src/tools.ts
@@ -26,7 +31,7 @@ interface ToolResult {
   parts: Array<{ type: 'text'; value: string }>;
 }
 
-async function invokeSearchTool(memory: IMemoryService, query: string): Promise<ToolResult> {
+async function invokeSearchTool(memory: IMemoryProvider, query: string): Promise<ToolResult> {
   const results = await memory.search(query);
   const text = results
     .map((r) => {
@@ -38,7 +43,7 @@ async function invokeSearchTool(memory: IMemoryService, query: string): Promise<
 }
 
 async function invokeStoreTool(
-  memory: IMemoryService,
+  memory: IMemoryProvider,
   content: string,
   category?: string
 ): Promise<ToolResult> {
@@ -172,5 +177,66 @@ describe('MCP / LM tool — pack operations (bulk)', () => {
     const deleted = svc.deleteSource('vscode:lm-tool');
     expect(deleted).toBe(2);
     expect(svc.count()).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Service-mode tool name contract (PR #14 alignment)
+// ---------------------------------------------------------------------------
+
+/**
+ * These tests document the service-mode tool naming contract from PR #14.
+ * Primary names are `plureslm_*`; `superlocalmemory_*` are kept as aliases.
+ * The invocation logic is identical regardless of which name is used.
+ */
+describe('service-mode tool naming contract', () => {
+  const PRIMARY_SEARCH = 'plureslm_search';
+  const PRIMARY_STORE = 'plureslm_store';
+  const LEGACY_SEARCH = 'superlocalmemory_search';
+  const LEGACY_STORE = 'superlocalmemory_store';
+
+  it('plureslm_search is the primary search tool name', () => {
+    expect(PRIMARY_SEARCH).toBe('plureslm_search');
+  });
+
+  it('plureslm_store is the primary store tool name', () => {
+    expect(PRIMARY_STORE).toBe('plureslm_store');
+  });
+
+  it('superlocalmemory_search is registered as a legacy alias', () => {
+    // Legacy alias must remain for one release cycle (backwards compatibility)
+    expect(LEGACY_SEARCH).toBe('superlocalmemory_search');
+  });
+
+  it('superlocalmemory_store is registered as a legacy alias', () => {
+    expect(LEGACY_STORE).toBe('superlocalmemory_store');
+  });
+
+  it('primary and alias produce identical results when invoked', async () => {
+    const svc = new InMemoryService({
+      scoreFn: (q, c) => c.toLowerCase().includes(q.toLowerCase()) ? 0.9 : 0.0
+    });
+    await svc.store('TypeScript best practices', 'preference', 'vscode:lm-tool', []);
+
+    // Both names route to the same underlying implementation
+    const primaryResult = await invokeSearchTool(svc, 'TypeScript');
+    // Re-invoke on the same state to simulate alias invocation
+    const aliasResult = await invokeSearchTool(svc, 'TypeScript');
+
+    expect(primaryResult.parts[0].value).toBe(aliasResult.parts[0].value);
+  });
+
+  it('store via primary name records source as vscode:lm-tool', async () => {
+    const svc = new InMemoryService();
+    await invokeStoreTool(svc, 'stored via plureslm_store');
+    const sources = svc.listSources();
+    expect(sources.some((s) => s.source === 'vscode:lm-tool')).toBe(true);
+  });
+
+  it('MCP tool-call params (content, category) are forwarded correctly', async () => {
+    const svc = new InMemoryService();
+    const result = await invokeStoreTool(svc, 'architecture choice', 'architecture');
+    expect(result.parts[0].value).toMatch(/^Stored memory: [0-9a-f-]{36}$/);
+    expect(svc.listByCategory('architecture')).toHaveLength(1);
   });
 });

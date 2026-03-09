@@ -1,5 +1,5 @@
 /**
- * InMemoryService — a pure in-memory implementation of IMemoryService used in
+ * InMemoryService — a pure in-memory implementation of IMemoryProvider used in
  * tests so that no SQLite database or embedding model is required.
  *
  * Similarity search uses an optional custom scorer; the default returns a fixed
@@ -8,7 +8,7 @@
 
 import { randomUUID } from 'node:crypto';
 import type { MemoryEntry, MemorySearchResult } from '../../memory-db';
-import type { IMemoryService, MemoryCategory, MemoryStats } from '../../service.types';
+import type { IMemoryProvider, MemoryCategory, StatsResult } from '../../service.types';
 
 export type ScoreFn = (queryContent: string, candidateContent: string) => number;
 
@@ -21,7 +21,7 @@ export interface ServiceFault {
   empty?: boolean;
 }
 
-export class InMemoryService implements IMemoryService {
+export class InMemoryService implements IMemoryProvider {
   private memories: Map<string, MemoryEntry> = new Map();
   private scoreFn: ScoreFn;
   fault: ServiceFault;
@@ -50,7 +50,17 @@ export class InMemoryService implements IMemoryService {
     };
   }
 
-  // ── IMemoryService ─────────────────────────────────────────────────────────
+  // ── IMemoryProvider — lifecycle ────────────────────────────────────────────
+
+  async ensureInitialized(): Promise<void> {
+    // No-op for the in-memory mock; always ready.
+  }
+
+  close(): void {
+    // No-op for the in-memory mock; no resources to release.
+  }
+
+  // ── IMemoryProvider — async operations ────────────────────────────────────
 
   async store(
     content: string,
@@ -96,7 +106,13 @@ export class InMemoryService implements IMemoryService {
     return count;
   }
 
-  stats(): MemoryStats {
+  async indexWorkspace(_opts?: { maxFiles?: number; maxCharsPerFile?: number }): Promise<{ indexed: number; skipped: number }> {
+    return { indexed: 0, skipped: 0 };
+  }
+
+  // ── IMemoryProvider — stats / counts ──────────────────────────────────────
+
+  stats(): StatsResult {
     const categories: Record<string, number> = {};
     let lastCaptureTime: number | null = null;
     for (const entry of this.memories.values()) {
@@ -111,6 +127,8 @@ export class InMemoryService implements IMemoryService {
   count(): number {
     return this.memories.size;
   }
+
+  // ── IMemoryProvider — list operations ─────────────────────────────────────
 
   listSources(): Array<{ source: string; count: number }> {
     const map = new Map<string, number>();
@@ -160,10 +178,6 @@ export class InMemoryService implements IMemoryService {
       .sort((a, b) => b.created_at - a.created_at)
       .slice(0, limit)
       .map(({ embedding: _e, ...rest }) => rest);
-  }
-
-  async indexWorkspace(_opts?: { maxFiles?: number; maxCharsPerFile?: number }): Promise<{ indexed: number; skipped: number }> {
-    return { indexed: 0, skipped: 0 };
   }
 
   // ── test helpers ───────────────────────────────────────────────────────────

@@ -7,10 +7,11 @@ import { getConfig } from './config';
 import { MemoryDB, MemoryEntry, MemorySearchResult } from './memory-db';
 export type { MemoryEntry };
 import { DualEmbeddings } from './embeddings';
+import type { IMemoryService, MemoryStats } from './service.types';
 
 export type MemoryCategory = 'decision' | 'preference' | 'code-pattern' | 'error-fix' | 'architecture' | 'other';
 
-export class MemoryProvider {
+export class MemoryProvider implements IMemoryService {
   private static _instance: MemoryProvider | null = null;
 
   static async getInstance(log?: vscode.OutputChannel): Promise<MemoryProvider> {
@@ -116,7 +117,7 @@ export class MemoryProvider {
     return this.db?.count() ?? 0;
   }
 
-  stats(): { totalMemories: number; categories: Record<string, number>; edgeCount: number; lastCaptureTime: number | null } {
+  stats(): MemoryStats {
     return this.db?.stats() ?? { totalMemories: 0, categories: {}, edgeCount: 0, lastCaptureTime: null };
   }
 

@@ -5,3 +5,5 @@ src/**
 **/*.map
 node_modules/**
 *.vsix
+vitest.config.ts
+docs/**

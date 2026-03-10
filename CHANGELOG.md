@@ -1,3 +1,7 @@
+## [0.6.0] — 2026-03-10
+
+- feat: service-mode QA regression suite — IMemoryProvider abstraction + 112 automated tests (#16) (14be273)
+
 ## [0.5.0] — 2026-03-10
 
 - feat: add MCP memory pack/bundle operations as VS Code commands (#15) (74bf3d9)

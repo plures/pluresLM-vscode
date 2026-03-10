@@ -28,6 +28,15 @@ export function getConfig(): SuperlocalmemoryConfig {
   const rawEnv = cfg.get<unknown>('serviceEnv');
   if (rawEnv && typeof rawEnv === 'object' && !Array.isArray(rawEnv)) {
     serviceEnv = rawEnv as Record<string, string>;
+  } else if (typeof rawEnv === 'string') {
+    try {
+      const parsed = JSON.parse(rawEnv);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        serviceEnv = parsed as Record<string, string>;
+      }
+    } catch {
+      // Ignore invalid JSON and fall back to empty serviceEnv
+    }
   } else if (typeof rawEnv === 'string' && rawEnv.trim().length > 0) {
     try {
       const parsed: unknown = JSON.parse(rawEnv);

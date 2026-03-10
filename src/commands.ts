@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { MemoryProvider, MemoryCategory, MemoryEntry } from './memory-provider';
+import { IMemoryProvider, MemoryCategory, MemoryEntry } from './memory-provider';
 
-export function registerCommands(context: vscode.ExtensionContext, memory: MemoryProvider, refreshUI?: () => void): void {
+export function registerCommands(context: vscode.ExtensionContext, memory: IMemoryProvider, refreshUI?: () => void): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('superlocalmemory.store', async () => {
       const content = await vscode.window.showInputBox({
@@ -153,7 +153,7 @@ export function registerCommands(context: vscode.ExtensionContext, memory: Memor
       );
       if (confirm !== 'Delete') return;
 
-      const deleted = memory.deleteSource(source);
+      const deleted = await Promise.resolve(memory.deleteSource(source));
       vscode.window.showInformationMessage(`Deleted ${deleted} memories from source "${source}".`);
       refreshUI?.();
     })

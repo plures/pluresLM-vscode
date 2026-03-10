@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { MemoryProvider, MemoryEntry } from './memory-provider';
+import { IMemoryProvider, MemoryEntry } from './memory-provider';
 
 const MS_PER_DAY = 86_400_000;
 const PREVIEW_LENGTH = 80;
@@ -39,7 +39,7 @@ export class KnowledgeBrowserProvider implements vscode.TreeDataProvider<Browser
   private _onDidChangeTreeData = new vscode.EventEmitter<BrowserTreeItem | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  constructor(private memory: MemoryProvider) {}
+  constructor(private memory: IMemoryProvider) {}
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
@@ -166,7 +166,7 @@ export class MemoryTreeDataProvider implements vscode.TreeDataProvider<MemoryTre
   private _onDidChangeTreeData = new vscode.EventEmitter<MemoryTreeItem | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  constructor(private memory: MemoryProvider) {}
+  constructor(private memory: IMemoryProvider) {}
 
   refresh(): void {
     this._onDidChangeTreeData.fire();
@@ -202,7 +202,7 @@ export class StatsViewProvider implements vscode.TreeDataProvider<MemoryTreeItem
   private _onDidChangeTreeData = new vscode.EventEmitter<MemoryTreeItem | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  constructor(private memory: MemoryProvider) {}
+  constructor(private memory: IMemoryProvider) {}
 
   refresh(): void {
     this._onDidChangeTreeData.fire();

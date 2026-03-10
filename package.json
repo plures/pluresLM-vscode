@@ -2,7 +2,7 @@
   "name": "superlocalmemory",
   "displayName": "PluresLM — AI Memory for Copilot",
   "description": "Persistent vector memory for GitHub Copilot Chat. Remember context across sessions.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "plures",
   "license": "AGPL-3.0",
   "repository": {
@@ -82,7 +82,10 @@
       "properties": {
         "superlocalmemory.mode": {
           "type": "string",
-          "enum": ["service", "legacy"],
+          "enum": [
+            "service",
+            "legacy"
+          ],
           "default": "service",
           "description": "Storage mode: 'service' routes reads/writes through the plureslm-service MCP process (default); 'legacy' uses a local better-sqlite3 database."
         },
@@ -93,7 +96,9 @@
         },
         "superlocalmemory.serviceArgs": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "default": [],
           "description": "Extra arguments passed to the service command (service mode only)."
         },

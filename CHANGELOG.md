@@ -1,3 +1,11 @@
+## [0.4.0] — 2026-03-10
+
+- feat: service-first PluresLM architecture with MCP service client and legacy fallback (#14) (13269ba)
+- ci: add PR lane event relay to centralized merge FSM (237af36)
+- docs: fix legacy repository URL and audit README branding post-rename (#10) (8e6c6b6)
+- docs: rename Superlocalmemory → PluresLM in README and package.json (#8) (d77102f)
+- Add knowledge browser tree view panel (#6) (8746b0a)
+
 ## [0.2.1] — 2026-03-01
 
 - fix(ci): add id-token permission to release workflow (#5) (c445f16)

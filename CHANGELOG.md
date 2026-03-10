@@ -1,3 +1,7 @@
+## [0.5.0] — 2026-03-10
+
+- feat: add MCP memory pack/bundle operations as VS Code commands (#15) (74bf3d9)
+
 ## [0.4.0] — 2026-03-10
 
 - feat: service-first PluresLM architecture with MCP service client and legacy fallback (#14) (13269ba)

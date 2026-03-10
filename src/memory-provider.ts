@@ -8,8 +8,11 @@ import { MemoryDB, MemoryEntry, MemorySearchResult, ProfileData } from './memory
 export type { MemoryEntry, MemorySearchResult };
 export type { ProfileData };
 import { DualEmbeddings } from './embeddings';
+import type { IMemoryProvider, MemoryCategory, StatsResult } from './service.types';
+export type { IMemoryProvider, StatsResult };
+import { detectDimensionMismatch, recordDimension } from './migration-utils';
 
-export type MemoryCategory = 'decision' | 'preference' | 'code-pattern' | 'error-fix' | 'architecture' | 'other';
+export type { MemoryCategory };
 
 export interface StatsResult {
   totalMemories: number;
@@ -162,32 +165,32 @@ export class MemoryProvider implements IMemoryProvider {
 
   private async checkDimensionMigration(): Promise<void> {
     if (!this.db) return;
-    
+
     const count = this.db.count();
     if (count === 0) return; // New DB, no migration needed
-    
-    // Check if we have a dimension metadata stored
+
     const profile = this.db.getProfile();
-    const storedDim = profile?.facts?.find(f => typeof f === 'string' && f.startsWith('embedding_dimension:'));
-    
-    if (storedDim && typeof storedDim === 'string') {
-      const dim = parseInt(storedDim.split(':')[1], 10);
-      if (dim !== this.embeddings?.dimension) {
-        this.info(
-          `⚠️  Dimension mismatch detected: DB has ${dim}-dim embeddings, now using ${this.embeddings?.dimension}-dim. ` +
-          `Recall quality may be degraded. Consider running "Memory: Index Project" to rebuild with new dimensions.`
-        );
-      }
-    } else {
-      // First time migration - store current dimension
-      const currentProfile = profile ?? {
+
+    // Use shared helper — same logic that migration.test.ts exercises
+    const warning = detectDimensionMismatch(profile, this.embeddings?.dimension ?? 384);
+    if (warning) {
+      this.info(`⚠️  ${warning}`);
+    } else if (!profile?.facts?.some((f: unknown) => typeof f === 'string' && f.startsWith('embedding_dimension:'))) {
+      // First-time migration: record the current dimension
+      const base = profile ?? {
         summary: '',
         facts: [],
         updated_at: Date.now(),
         capture_count: 0
       };
-      currentProfile.facts.push(`embedding_dimension:${this.embeddings?.dimension}`);
-      this.db.setProfile(currentProfile);
+      const updated = recordDimension(base, this.embeddings?.dimension ?? 384);
+      // Ensure required fields are present for memory-db.ProfileData
+      this.db.setProfile({
+        summary: base.summary ?? '',
+        facts: updated.facts,
+        updated_at: base.updated_at ?? Date.now(),
+        capture_count: base.capture_count
+      });
     }
   }
 
@@ -203,7 +206,7 @@ export class MemoryProvider implements IMemoryProvider {
     return this.db?.count() ?? 0;
   }
 
-  stats(): { totalMemories: number; categories: Record<string, number>; edgeCount: number; lastCaptureTime: number | null } {
+  stats(): StatsResult {
     return this.db?.stats() ?? { totalMemories: 0, categories: {}, edgeCount: 0, lastCaptureTime: null };
   }
 

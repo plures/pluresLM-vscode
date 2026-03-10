@@ -4,8 +4,9 @@ import * as os from 'node:os';
 import * as fs from 'node:fs';
 
 import { getConfig } from './config';
-import { MemoryDB, MemoryEntry, MemorySearchResult } from './memory-db';
+import { MemoryDB, MemoryEntry, MemorySearchResult, ProfileData } from './memory-db';
 export type { MemoryEntry, MemorySearchResult };
+export type { ProfileData };
 import { DualEmbeddings } from './embeddings';
 
 export type MemoryCategory = 'decision' | 'preference' | 'code-pattern' | 'error-fix' | 'architecture' | 'other';
@@ -244,6 +245,65 @@ export class MemoryProvider implements IMemoryProvider {
 
   listSources(): Array<{ source: string; count: number }> {
     return this.db?.listSources() ?? [];
+  }
+
+  getAllEntries(): Array<Omit<MemoryEntry, 'embedding'>> {
+    return this.db?.getAllEntries() ?? [];
+  }
+
+  getProfile() {
+    return this.db?.getProfile() ?? null;
+  }
+
+  clearAll(): void {
+    this.db?.clearAll();
+  }
+
+  /**
+   * Import entries without embeddings (entries stored but not immediately vector-searchable).
+   * Uses ID-based upsert so bundle restores are faithful: distinct memories with identical
+   * content are all preserved, uniqueness is enforced by ID only.
+   */
+  importEntries(entries: Array<Omit<MemoryEntry, 'embedding'>>): { imported: number; skipped: number } {
+    if (!this.db) throw new Error('MemoryProvider not initialized');
+    let imported = 0;
+    for (const entry of entries) {
+      this.db.storeRawById(entry);
+      imported++;
+    }
+    return { imported, skipped: 0 };
+  }
+
+  /**
+   * Import entries with embeddings generated on-the-fly (fully searchable after import).
+   */
+  async importEntriesWithEmbeddings(entries: Array<Omit<MemoryEntry, 'embedding'>>): Promise<{ imported: number; skipped: number }> {
+    await this.ensureInitialized();
+    if (!this.db || !this.embeddings) throw new Error('MemoryProvider not initialized');
+    let imported = 0;
+    let skipped = 0;
+    for (const entry of entries) {
+      try {
+        const embedding = await this.embeddings.embed(entry.content);
+        const { isDuplicate } = await this.db.store(entry.content, embedding, {
+          category: entry.category,
+          source: entry.source,
+          tags: entry.tags,
+          dedupeThreshold: 0.98
+        });
+        if (isDuplicate) skipped++;
+        else imported++;
+      } catch (err) {
+        this.info(`importEntriesWithEmbeddings: skipped entry ${entry.id}: ${String(err)}`);
+        skipped++;
+      }
+    }
+    return { imported, skipped };
+  }
+
+  setProfile(profile: ProfileData | null): void {
+    if (!this.db || !profile) return;
+    this.db.setProfile(profile);
   }
 
   listByCategory(category: string, limit?: number): Array<Omit<MemoryEntry, 'embedding'>> {

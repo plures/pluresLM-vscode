@@ -75,6 +75,42 @@
         "title": "Delete Source",
         "category": "Memory",
         "icon": "$(trash)"
+      },
+      {
+        "command": "superlocalmemory.exportBundle",
+        "title": "Export Memory Bundle",
+        "category": "Memory",
+        "icon": "$(export)"
+      },
+      {
+        "command": "superlocalmemory.restoreBundle",
+        "title": "Restore Memory Bundle",
+        "category": "Memory",
+        "icon": "$(history)"
+      },
+      {
+        "command": "superlocalmemory.exportPack",
+        "title": "Export Memory Pack",
+        "category": "Memory",
+        "icon": "$(package)"
+      },
+      {
+        "command": "superlocalmemory.importPack",
+        "title": "Import Memory Pack",
+        "category": "Memory",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "superlocalmemory.listPacks",
+        "title": "List Memory Packs",
+        "category": "Memory",
+        "icon": "$(list-unordered)"
+      },
+      {
+        "command": "superlocalmemory.uninstallPack",
+        "title": "Uninstall Memory Pack",
+        "category": "Memory",
+        "icon": "$(trash)"
       }
     ],
     "configuration": {

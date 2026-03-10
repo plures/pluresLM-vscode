@@ -385,6 +385,21 @@ export class MemoryDB {
     }));
   }
 
+  storeRawById(entry: Omit<MemoryEntry, 'embedding'>): void {
+    this.db
+      .prepare(
+        `INSERT OR REPLACE INTO memories (id, content, embedding, created_at, source, tags, category) VALUES (?, ?, NULL, ?, ?, ?, ?)`
+      )
+      .run(
+        entry.id,
+        entry.content,
+        entry.created_at,
+        entry.source ?? '',
+        JSON.stringify(entry.tags ?? []),
+        entry.category ?? 'other'
+      );
+  }
+
   storeRaw(entry: Omit<MemoryEntry, 'embedding'>): boolean {
     const existing = this.db.prepare(`SELECT id FROM memories WHERE id = ?`).get(entry.id) as { id: string } | undefined;
 
@@ -525,6 +540,28 @@ export class MemoryDB {
         `INSERT INTO sync_state (peer_id, last_sync_at) VALUES (?, ?) ON CONFLICT(peer_id) DO UPDATE SET last_sync_at = excluded.last_sync_at`
       )
       .run(peerId, timestamp);
+  }
+
+  getAllEntries(): Array<Omit<MemoryEntry, 'embedding'>> {
+    const rows = this.db
+      .prepare(
+        `SELECT id, content, created_at, source, tags, category FROM memories ORDER BY created_at ASC`
+      )
+      .all() as Array<Record<string, unknown>>;
+    return rows.map((row) => ({
+      id: row.id as string,
+      content: row.content as string,
+      created_at: row.created_at as number,
+      source: (row.source as string) ?? '',
+      tags: JSON.parse((row.tags as string) || '[]'),
+      category: (row.category as string) ?? 'other'
+    }));
+  }
+
+  clearAll(): void {
+    this.db.prepare(`DELETE FROM memory_edges`).run();
+    this.db.prepare(`DELETE FROM memories`).run();
+    this.db.prepare(`DELETE FROM profile`).run();
   }
 
   isOpen(): boolean {

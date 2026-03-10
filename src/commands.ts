@@ -1,5 +1,23 @@
 import * as vscode from 'vscode';
+import * as path from 'node:path';
+import * as os from 'node:os';
 import { IMemoryProvider, MemoryCategory, MemoryEntry } from './memory-provider';
+import { PackManager, isPackCapable } from './pack-manager';
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Returns a PackManager when the provider supports pack operations, or shows an error and returns null. */
+function packManager(memory: IMemoryProvider): PackManager | null {
+  if (!isPackCapable(memory)) {
+    vscode.window.showErrorMessage(
+      'Pack/bundle operations require legacy mode. Set "superlocalmemory.mode": "legacy" in settings.'
+    );
+    return null;
+  }
+  return new PackManager(memory);
+}
 
 export function registerCommands(context: vscode.ExtensionContext, memory: IMemoryProvider, refreshUI?: () => void): void {
   context.subscriptions.push(
@@ -155,6 +173,231 @@ export function registerCommands(context: vscode.ExtensionContext, memory: IMemo
 
       const deleted = await Promise.resolve(memory.deleteSource(source));
       vscode.window.showInformationMessage(`Deleted ${deleted} memories from source "${source}".`);
+      refreshUI?.();
+    })
+  );
+
+  // ---------------------------------------------------------------------------
+  // Export Bundle
+  // ---------------------------------------------------------------------------
+  context.subscriptions.push(
+    vscode.commands.registerCommand('superlocalmemory.exportBundle', async () => {
+      const packs = packManager(memory);
+      if (!packs) return;
+
+      const defaultName = `memory-bundle-${todayIso()}.memorybundle.json`;
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(path.join(os.homedir(), defaultName)),
+        filters: { 'Memory Bundle': ['memorybundle.json', 'json'] },
+        title: 'Export Memory Bundle'
+      });
+      if (!uri) return;
+
+      try {
+        const { count } = await packs.exportBundle(uri.fsPath);
+        vscode.window.showInformationMessage(`Exported ${count} memories to ${path.basename(uri.fsPath)}.`);
+      } catch (err) {
+        vscode.window.showErrorMessage(`Export failed: ${String(err)}`);
+      }
+    })
+  );
+
+  // ---------------------------------------------------------------------------
+  // Restore Bundle
+  // ---------------------------------------------------------------------------
+  context.subscriptions.push(
+    vscode.commands.registerCommand('superlocalmemory.restoreBundle', async () => {
+      const packs = packManager(memory);
+      if (!packs) return;
+
+      const uris = await vscode.window.showOpenDialog({
+        filters: { 'Memory Bundle': ['memorybundle.json', 'json'] },
+        canSelectMany: false,
+        title: 'Select Memory Bundle to Restore'
+      });
+      if (!uris || uris.length === 0) return;
+
+      const confirm = await vscode.window.showWarningMessage(
+        'Restoring a bundle will replace ALL current memories. This cannot be undone.',
+        { modal: true },
+        'Restore'
+      );
+      if (confirm !== 'Restore') return;
+
+      try {
+        const { restored, skipped } = await packs.restoreBundle(uris[0].fsPath);
+        vscode.window.showInformationMessage(
+          `Bundle restored: ${restored} memories imported, ${skipped} skipped. ` +
+            `Run "Memory: Index Project" to rebuild search vectors.`
+        );
+        refreshUI?.();
+      } catch (err) {
+        vscode.window.showErrorMessage(`Restore failed: ${String(err)}`);
+      }
+    })
+  );
+
+  // ---------------------------------------------------------------------------
+  // Export Pack
+  // ---------------------------------------------------------------------------
+  context.subscriptions.push(
+    vscode.commands.registerCommand('superlocalmemory.exportPack', async () => {
+      const packs = packManager(memory);
+      if (!packs) return;
+
+      const packName = await vscode.window.showInputBox({
+        title: 'Export Memory Pack',
+        prompt: 'Pack name (used when the pack is imported)',
+        placeHolder: 'e.g. react-patterns'
+      });
+      if (!packName) return;
+
+      const allCategories = ['decision', 'preference', 'code-pattern', 'error-fix', 'architecture', 'other'];
+      const picked = await vscode.window.showQuickPick(
+        [{ label: 'All categories', picked: true }, ...allCategories.map((c) => ({ label: c, picked: false }))],
+        { title: 'Filter by categories (leave on "All" for everything)', canPickMany: true }
+      );
+      if (!picked) return;
+
+      const categories = picked.some((p) => p.label === 'All categories')
+        ? undefined
+        : picked.map((p) => p.label);
+
+      const defaultName = `${packName}.memorypack.json`;
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(path.join(os.homedir(), defaultName)),
+        filters: { 'Memory Pack': ['memorypack.json', 'json'] },
+        title: 'Save Memory Pack'
+      });
+      if (!uri) return;
+
+      try {
+        const { count } = await packs.exportPack(packName, uri.fsPath, categories ? { categories } : undefined);
+        vscode.window.showInformationMessage(`Exported pack "${packName}" with ${count} memories.`);
+      } catch (err) {
+        vscode.window.showErrorMessage(`Export pack failed: ${String(err)}`);
+      }
+    })
+  );
+
+  // ---------------------------------------------------------------------------
+  // Import Pack
+  // ---------------------------------------------------------------------------
+  context.subscriptions.push(
+    vscode.commands.registerCommand('superlocalmemory.importPack', async () => {
+      const packs = packManager(memory);
+      if (!packs) return;
+
+      const uris = await vscode.window.showOpenDialog({
+        filters: { 'Memory Pack': ['memorypack.json', 'json'] },
+        canSelectMany: false,
+        title: 'Select Memory Pack to Import'
+      });
+      if (!uris || uris.length === 0) return;
+
+      // Parse just the header to show a preview before confirming; abort on malformed input
+      let preview = '';
+      try {
+        const { promises: fsp } = await import('node:fs');
+        const raw = await fsp.readFile(uris[0].fsPath, 'utf-8');
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        if (parsed['type'] !== 'pack') {
+          vscode.window.showErrorMessage(
+            `This file is a "${String(parsed['type'])}", not a pack. Use "Restore Memory Bundle" for bundle files.`
+          );
+          return;
+        }
+        if (typeof parsed['name'] !== 'string' || !(parsed['name'] as string).trim()) {
+          vscode.window.showErrorMessage('Selected file is not a valid memory pack: missing "name" field.');
+          return;
+        }
+        if (!Array.isArray(parsed['entries'])) {
+          vscode.window.showErrorMessage('Selected file is not a valid memory pack: missing "entries" array.');
+          return;
+        }
+        preview = `Pack: "${parsed['name'] as string}" — ${(parsed['entries'] as unknown[]).length} entries`;
+      } catch (err) {
+        vscode.window.showErrorMessage(`Could not read pack file: ${err instanceof Error ? err.message : String(err)}`);
+        return;
+      }
+
+      const confirm = await vscode.window.showInformationMessage(
+        `Import ${preview}? Existing memories will not be affected.`,
+        { modal: true },
+        'Import'
+      );
+      if (confirm !== 'Import') return;
+
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: 'Importing memory pack…', cancellable: false },
+        async () => {
+          try {
+            const { packName, imported, skipped } = await packs.importPack(uris[0].fsPath);
+            vscode.window.showInformationMessage(
+              `Pack "${packName}" imported: ${imported} memories added, ${skipped} skipped.`
+            );
+            refreshUI?.();
+          } catch (err) {
+            vscode.window.showErrorMessage(`Import pack failed: ${String(err)}`);
+          }
+        }
+      );
+    })
+  );
+
+  // ---------------------------------------------------------------------------
+  // List Packs
+  // ---------------------------------------------------------------------------
+  context.subscriptions.push(
+    vscode.commands.registerCommand('superlocalmemory.listPacks', async () => {
+      const packs = packManager(memory);
+      if (!packs) return;
+
+      const installed = packs.listPacks();
+      if (installed.length === 0) {
+        vscode.window.showInformationMessage('No memory packs installed.');
+        return;
+      }
+
+      const lines = [
+        '# Installed Memory Packs',
+        '',
+        ...installed.map((p) => `- **${p.name}** — ${p.count} memories  (source: \`${p.source}\`)`)
+      ];
+      const doc = await vscode.workspace.openTextDocument({ content: lines.join('\n'), language: 'markdown' });
+      await vscode.window.showTextDocument(doc, { preview: true });
+    })
+  );
+
+  // ---------------------------------------------------------------------------
+  // Uninstall Pack
+  // ---------------------------------------------------------------------------
+  context.subscriptions.push(
+    vscode.commands.registerCommand('superlocalmemory.uninstallPack', async () => {
+      const packs = packManager(memory);
+      if (!packs) return;
+
+      const installed = packs.listPacks();
+      if (installed.length === 0) {
+        vscode.window.showInformationMessage('No memory packs installed.');
+        return;
+      }
+
+      const picked = await vscode.window.showQuickPick(
+        installed.map((p) => ({ label: p.name, description: `${p.count} memories`, count: p.count })),
+        { title: 'Uninstall Memory Pack' }
+      );
+      if (!picked) return;
+
+      const confirm = await vscode.window.showWarningMessage(
+        `Uninstall pack "${picked.label}"? This will remove ${picked.count} memories.`,
+        { modal: true },
+        'Uninstall'
+      );
+      if (confirm !== 'Uninstall') return;
+
+      const deleted = await packs.uninstallPack(picked.label);
+      vscode.window.showInformationMessage(`Pack "${picked.label}" uninstalled (${deleted} memories removed).`);
       refreshUI?.();
     })
   );

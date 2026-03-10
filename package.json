@@ -2,7 +2,7 @@
   "name": "superlocalmemory",
   "displayName": "PluresLM — AI Memory for Copilot",
   "description": "Persistent vector memory for GitHub Copilot Chat. Remember context across sessions.",
-  "version": "0.2.1",
+  "version": "0.4.0",
   "publisher": "plures",
   "license": "AGPL-3.0",
   "repository": {
@@ -116,30 +116,62 @@
     "configuration": {
       "title": "PluresLM",
       "properties": {
+        "superlocalmemory.mode": {
+          "type": "string",
+          "enum": [
+            "service",
+            "legacy"
+          ],
+          "default": "service",
+          "description": "Storage mode: 'service' routes reads/writes through the plureslm-service MCP process (default); 'legacy' uses a local better-sqlite3 database."
+        },
+        "superlocalmemory.serviceCommand": {
+          "type": "string",
+          "default": "plureslm-service",
+          "description": "Command used to start the plureslm-service process (service mode only). Must be on PATH or a full path."
+        },
+        "superlocalmemory.serviceArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Extra arguments passed to the service command (service mode only)."
+        },
+        "superlocalmemory.serviceTimeout": {
+          "type": "number",
+          "default": 10000,
+          "description": "Milliseconds to wait for a service response before timing out (service mode only)."
+        },
+        "superlocalmemory.serviceEnv": {
+          "type": "object",
+          "default": {},
+          "description": "Extra environment variables injected into the service process (service mode only). Example: { \"PLURESLM_DB\": \"/data/memories.db\" }"
+        },
         "superlocalmemory.dbPath": {
           "type": "string",
           "default": "",
-          "description": "Path to memory database (default: ~/.superlocalmemory/vscode.db)"
+          "description": "(Legacy mode) Path to memory database (default: ~/.superlocalmemory/vscode.db)"
         },
         "superlocalmemory.openaiApiKey": {
           "type": "string",
           "default": "",
-          "description": "(Optional) OpenAI API key to override default Transformers.js embeddings"
+          "description": "(Legacy mode) OpenAI API key to override default Transformers.js embeddings"
         },
         "superlocalmemory.openaiEmbeddingModel": {
           "type": "string",
           "default": "text-embedding-3-small",
-          "description": "(Optional) OpenAI embeddings model"
+          "description": "(Legacy mode) OpenAI embeddings model"
         },
         "superlocalmemory.ollamaEndpoint": {
           "type": "string",
           "default": "http://localhost:11434",
-          "description": "(Optional) Ollama endpoint to override default Transformers.js embeddings"
+          "description": "(Legacy mode) Ollama endpoint to override default Transformers.js embeddings"
         },
         "superlocalmemory.ollamaEmbeddingModel": {
           "type": "string",
           "default": "nomic-embed-text",
-          "description": "(Optional) Ollama embedding model"
+          "description": "(Legacy mode) Ollama embedding model"
         },
         "superlocalmemory.autoCapture": {
           "type": "boolean",
@@ -225,7 +257,7 @@
     ],
     "languageModelTools": [
       {
-        "name": "superlocalmemory_search",
+        "name": "plureslm_search_text",
         "displayName": "Search Memory",
         "modelDescription": "Search the user's persistent long-term memory for relevant past context, decisions, code patterns, and error fixes. Use this to recall information from previous sessions.",
         "inputSchema": {
@@ -242,9 +274,47 @@
         }
       },
       {
-        "name": "superlocalmemory_store",
+        "name": "plureslm_store",
         "displayName": "Store Memory",
         "modelDescription": "Store important information in the user's persistent memory. Use for decisions, preferences, code patterns, and anything worth remembering across sessions.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "content": {
+              "type": "string",
+              "description": "Information to remember"
+            },
+            "category": {
+              "type": "string",
+              "description": "Category: decision, preference, code-pattern, error-fix, architecture"
+            }
+          },
+          "required": [
+            "content"
+          ]
+        }
+      },
+      {
+        "name": "superlocalmemory_search",
+        "displayName": "Search Memory (legacy)",
+        "modelDescription": "Deprecated alias for plureslm_search_text. Use plureslm_search_text instead.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Search query"
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      },
+      {
+        "name": "superlocalmemory_store",
+        "displayName": "Store Memory (legacy)",
+        "modelDescription": "Deprecated alias for plureslm_store. Use plureslm_store instead.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -271,10 +341,10 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@huggingface/transformers": "^3.8.1",
-    "better-sqlite3": "^11.0.0"
+    "@huggingface/transformers": "^3.8.1"
   },
   "optionalDependencies": {
+    "better-sqlite3": "^11.0.0",
     "openai": "^6.18.0"
   },
   "devDependencies": {

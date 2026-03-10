@@ -1,14 +1,14 @@
 import * as vscode from 'vscode';
 
 import { getConfig } from './config';
-import { MemoryProvider } from './memory-provider';
+import { MemoryProvider, IMemoryProvider } from './memory-provider';
 import { registerCommands } from './commands';
 import { MemoryStatusBar } from './status-bar';
 import { MemoryTreeDataProvider, StatsViewProvider, KnowledgeBrowserProvider } from './sidebar';
 import { registerChatParticipant } from './chat-participant';
 import { registerLanguageModelTools } from './tools';
 
-let memory: MemoryProvider | null = null;
+let memory: IMemoryProvider | null = null;
 let statusBar: MemoryStatusBar | null = null;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -17,7 +17,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   output.appendLine('Activating Superlocalmemory…');
 
-  memory = await MemoryProvider.getInstance(output);
+  memory = await MemoryProvider.create(output);
 
   const refreshAll = () => {
     void statusBar?.refresh();

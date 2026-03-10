@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { MemoryProvider, MemoryCategory, MemoryEntry } from './memory-provider';
+import { IMemoryProvider, MemoryCategory, MemoryEntry } from './memory-provider';
 import { PackManager, isPackCapable } from './pack-manager';
 
 function todayIso(): string {
@@ -9,7 +9,7 @@ function todayIso(): string {
 }
 
 /** Returns a PackManager when the provider supports pack operations, or shows an error and returns null. */
-function packManager(memory: MemoryProvider): PackManager | null {
+function packManager(memory: IMemoryProvider): PackManager | null {
   if (!isPackCapable(memory)) {
     vscode.window.showErrorMessage(
       'Pack/bundle operations require legacy mode. Set "superlocalmemory.mode": "legacy" in settings.'
@@ -19,7 +19,7 @@ function packManager(memory: MemoryProvider): PackManager | null {
   return new PackManager(memory);
 }
 
-export function registerCommands(context: vscode.ExtensionContext, memory: MemoryProvider, refreshUI?: () => void): void {
+export function registerCommands(context: vscode.ExtensionContext, memory: IMemoryProvider, refreshUI?: () => void): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('superlocalmemory.store', async () => {
       const content = await vscode.window.showInputBox({
@@ -171,7 +171,7 @@ export function registerCommands(context: vscode.ExtensionContext, memory: Memor
       );
       if (confirm !== 'Delete') return;
 
-      const deleted = memory.deleteSource(source);
+      const deleted = await Promise.resolve(memory.deleteSource(source));
       vscode.window.showInformationMessage(`Deleted ${deleted} memories from source "${source}".`);
       refreshUI?.();
     })

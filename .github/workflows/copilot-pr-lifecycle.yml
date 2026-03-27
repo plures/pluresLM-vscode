@@ -55,7 +55,8 @@ jobs:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const botId = 'BOT_kgDOC9w8XQ';
+            const { data: copilotUser } = await github.rest.users.getByUsername({ username: 'Copilot' });
+            const botId = copilotUser.node_id;
 
             // Phase 1: Check open Copilot PRs — approve+merge if ready
             const allOpenPRs = await github.paginate(

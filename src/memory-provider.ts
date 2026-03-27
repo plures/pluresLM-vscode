@@ -95,7 +95,8 @@ export class MemoryProvider implements IMemoryProvider {
           );
           throw new Error(
             `Failed to initialize memory provider in both service and legacy modes. ` +
-            `Service error: ${String(err)}; legacy error: ${String(legacyErr)}`
+            `Service error: ${String(err)}; legacy error: ${String(legacyErr)}`,
+            { cause: legacyErr }
           );
         }
       }

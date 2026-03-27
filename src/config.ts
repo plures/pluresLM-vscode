@@ -37,15 +37,6 @@ export function getConfig(): SuperlocalmemoryConfig {
     } catch {
       // Ignore invalid JSON and fall back to empty serviceEnv
     }
-  } else if (typeof rawEnv === 'string' && rawEnv.trim().length > 0) {
-    try {
-      const parsed: unknown = JSON.parse(rawEnv);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        serviceEnv = parsed as Record<string, string>;
-      }
-    } catch {
-      // Invalid JSON — fall back to empty env and let the user know via a no-op
-    }
   }
 
   return {

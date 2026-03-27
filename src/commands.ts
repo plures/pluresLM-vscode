@@ -296,7 +296,7 @@ export function registerCommands(context: vscode.ExtensionContext, memory: IMemo
       if (!uris || uris.length === 0) return;
 
       // Parse just the header to show a preview before confirming; abort on malformed input
-      let preview = '';
+      let preview: string;
       try {
         const { promises: fsp } = await import('node:fs');
         const raw = await fsp.readFile(uris[0].fsPath, 'utf-8');

@@ -186,7 +186,6 @@ export class MemoryTreeDataProvider implements vscode.TreeDataProvider<MemoryTre
 
     // For now we don't list individual memories (would require a list API).
     // TODO: add a paged list endpoint in MemoryDB and show recent memories per category.
-    const cat = element.label;
     return [
       new MemoryTreeItem(
         'Search in this category…',

@@ -63,6 +63,7 @@ export class MemoryDB {
   private closed = false;
 
   constructor(dbPath: string, _vectorDimension: number) {
+    void _vectorDimension;
     this.dbPath = dbPath;
     const Database = requireDatabase();
     this.db = new Database(dbPath);

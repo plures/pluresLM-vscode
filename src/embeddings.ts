@@ -12,8 +12,20 @@ export interface EmbeddingProvider {
   dimension: number;
 }
 
+type OpenAIEmbeddingsResponse = { data: Array<{ embedding: number[] }> };
+
+type OpenAIClient = {
+  embeddings: {
+    create: (args: { model: string; input: string; dimensions?: number }) => Promise<OpenAIEmbeddingsResponse>;
+  };
+};
+
+type OpenAIConstructor = {
+  new (options: { apiKey: string }): OpenAIClient;
+};
+
 export class OpenAIEmbeddings implements EmbeddingProvider {
-  private client: any = null; // Lazy-loaded OpenAI client
+  private client: OpenAIClient | null = null; // Lazy-loaded OpenAI client
   dimension: number;
 
   constructor(private apiKey: string, private model: string = 'text-embedding-3-small', dimension: number = 1536) {
@@ -26,10 +38,11 @@ export class OpenAIEmbeddings implements EmbeddingProvider {
     try {
       // Lazy import OpenAI only when needed
       const { default: OpenAI } = await import('openai');
-      this.client = new OpenAI({ apiKey: this.apiKey });
+      this.client = new (OpenAI as OpenAIConstructor)({ apiKey: this.apiKey });
     } catch (err) {
       throw new Error(
-        `OpenAI package not found. Install it to use OpenAI embeddings.\nError: ${String(err)}`
+        `OpenAI package not found. Install it to use OpenAI embeddings.\nError: ${String(err)}`,
+        { cause: err }
       );
     }
   }
@@ -37,6 +50,10 @@ export class OpenAIEmbeddings implements EmbeddingProvider {
   async embed(text: string): Promise<number[]> {
     await this.ensureClient();
     
+    if (!this.client) {
+      throw new Error('OpenAI client not initialized');
+    }
+
     const response = await this.client.embeddings.create({
       model: this.model,
       input: text,
@@ -89,9 +106,14 @@ export class OllamaEmbeddings implements EmbeddingProvider {
   }
 }
 
+type FeatureExtractionPipeline = (
+  input: string,
+  options: { pooling: string; normalize: boolean }
+) => Promise<{ data: Float32Array | number[] }>;
+
 export class TransformersEmbeddings implements EmbeddingProvider {
   dimension: number = 384; // bge-small-en-v1.5 outputs 384-dim embeddings
-  private extractor: any = null; // Pipeline type from @huggingface/transformers
+  private extractor: FeatureExtractionPipeline | null = null; // Pipeline type from @huggingface/transformers
   private initPromise: Promise<void> | null = null;
   private log: (msg: string) => void;
 
@@ -109,7 +131,7 @@ export class TransformersEmbeddings implements EmbeddingProvider {
     this.initPromise = (async () => {
       try {
         this.log(`Loading Transformers.js model: ${this.model}...`);
-        this.extractor = await pipeline('feature-extraction', this.model);
+        this.extractor = (await pipeline('feature-extraction', this.model)) as FeatureExtractionPipeline;
         this.log(`Model ${this.model} loaded successfully (384-dim)`);
       } catch (err) {
         // Reset initPromise on failure to allow retry
@@ -220,7 +242,7 @@ export class DualEmbeddings implements EmbeddingProvider {
       try {
         return await this.default.embed(text);
       } catch (err) {
-        throw new Error(`All embedding providers failed. Last error: ${String(err)}`);
+        throw new Error(`All embedding providers failed. Last error: ${String(err)}`, { cause: err });
       }
     }
 

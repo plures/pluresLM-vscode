@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { IMemoryProvider } from './memory-provider';
 
 function getTextFromRequest(req: unknown): string {
-  const r = req as any;
+  const r = req as { prompt?: unknown; message?: unknown; text?: unknown } | null;
   return (r?.prompt ?? r?.message ?? r?.text ?? '').toString();
 }
 
@@ -18,8 +18,8 @@ export function parseSlashCommand(text: string): { command: string; args: string
 }
 
 export function registerChatParticipant(context: vscode.ExtensionContext, memory: IMemoryProvider): void {
-  const chatAny = (vscode as any).chat;
-  if (!chatAny?.createChatParticipant) {
+  const chatApi = (vscode as { chat?: { createChatParticipant?: (...args: unknown[]) => unknown } }).chat;
+  if (!chatApi?.createChatParticipant) {
     // Older VS Code without chat API.
     return;
   }

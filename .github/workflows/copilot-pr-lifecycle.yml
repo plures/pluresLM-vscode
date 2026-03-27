@@ -193,10 +193,11 @@ jobs:
             }
 
             // Phase 2: No open PRs — assign next issue
-            const allIssues = await github.rest.issues.listForRepo({
-              owner, repo, state: 'open', per_page: 100
-            });
-            const copilotBusy = allIssues.data.some(i =>
+            const allIssues = await github.paginate(
+              github.rest.issues.listForRepo,
+              { owner, repo, state: 'open', per_page: 100 }
+            );
+            const copilotBusy = allIssues.some(i =>
               !i.pull_request && i.assignees.some(a => a.login === 'Copilot')
             );
             if (copilotBusy) {
@@ -207,7 +208,7 @@ jobs:
             const skipPrefixes = ['[cross-repo]', '[praxis-health]'];
 
             // Priority 1: Doc debt
-            const docIssues = allIssues.data.filter(i =>
+            const docIssues = allIssues.filter(i =>
               !i.pull_request &&
               !i.assignees.some(a => a.login === 'Copilot') &&
               i.labels.some(l => l.name === 'documentation')
@@ -222,7 +223,7 @@ jobs:
             }
 
             // Priority 2: QA bugs + CI failures
-            const bugs = allIssues.data.filter(i =>
+            const bugs = allIssues.filter(i =>
               !i.pull_request &&
               !i.assignees.some(a => a.login === 'Copilot') &&
               i.labels.some(l => l.name === 'bug' || l.name === 'ci-failure')
@@ -237,7 +238,7 @@ jobs:
             }
 
             // Priority 3: Level-critical issues (below floor — treat as bugs)
-            const levelCritical = allIssues.data.filter(i =>
+            const levelCritical = allIssues.filter(i =>
               !i.pull_request &&
               !i.assignees.some(a => a.login === 'Copilot') &&
               i.labels.some(l => l.name === 'critical') &&
@@ -253,7 +254,7 @@ jobs:
             }
 
             // Priority 4: Level improvement issues (below target)
-            const levelImprovement = allIssues.data.filter(i =>
+            const levelImprovement = allIssues.filter(i =>
               !i.pull_request &&
               !i.assignees.some(a => a.login === 'Copilot') &&
               i.labels.some(l => l.name === 'continuous-improvement') &&
@@ -270,7 +271,7 @@ jobs:
             }
 
             // Priority 5: Strategic gate issues
-            const strategicGate = allIssues.data.filter(i =>
+            const strategicGate = allIssues.filter(i =>
               !i.pull_request &&
               !i.assignees.some(a => a.login === 'Copilot') &&
               i.labels.some(l => l.name === 'strategic-gate') &&
@@ -310,7 +311,7 @@ jobs:
             }
 
             // Phase 3: Stall detection — if Copilot assigned but no PR after 30min, re-ping
-            const assigned = allIssues.data.filter(i =>
+            const assigned = allIssues.filter(i =>
               !i.pull_request && i.assignees.some(a => a.login === 'Copilot')
             );
             for (const issue of assigned) {

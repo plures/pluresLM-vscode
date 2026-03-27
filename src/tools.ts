@@ -1,5 +1,26 @@
 import * as vscode from 'vscode';
-import { IMemoryProvider } from './memory-provider';
+import { IMemoryProvider, type MemoryCategory } from './memory-provider';
+
+const memoryCategories = new Set<MemoryCategory>([
+  'decision',
+  'preference',
+  'code-pattern',
+  'error-fix',
+  'architecture',
+  'other',
+]);
+
+function asMemoryCategory(value: string | undefined): MemoryCategory {
+  if (value && memoryCategories.has(value as MemoryCategory)) return value as MemoryCategory;
+  return 'other';
+}
+
+function asDisposable(value: unknown): vscode.Disposable {
+  if (value && typeof (value as { dispose?: unknown }).dispose === 'function') {
+    return value as vscode.Disposable;
+  }
+  return { dispose: () => void 0 };
+}
 
 class SearchMemoryTool implements vscode.LanguageModelTool<{ query: string }> {
   constructor(private memory: IMemoryProvider) {}
@@ -32,7 +53,7 @@ class StoreMemoryTool implements vscode.LanguageModelTool<{ content: string; cat
   ): Promise<vscode.LanguageModelToolResult> {
     void token;
     const content = options.input.content;
-    const category = options.input.category ?? 'other';
+    const category = asMemoryCategory(options.input.category);
 
     const entry = await this.memory.store(content, category, 'vscode:lm-tool');
 
@@ -50,10 +71,10 @@ export function registerLanguageModelTools(context: vscode.ExtensionContext, mem
   }
 
   // Register under plureslm_* names (current MCP surface)
-  context.subscriptions.push(lmApi.registerTool('plureslm_search_text', new SearchMemoryTool(memory)));
-  context.subscriptions.push(lmApi.registerTool('plureslm_store', new StoreMemoryTool(memory)));
+  context.subscriptions.push(asDisposable(lmApi.registerTool('plureslm_search_text', new SearchMemoryTool(memory))));
+  context.subscriptions.push(asDisposable(lmApi.registerTool('plureslm_store', new StoreMemoryTool(memory))));
 
   // Keep legacy names registered for one release cycle (backwards compatibility)
-  context.subscriptions.push(lmApi.registerTool('superlocalmemory_search', new SearchMemoryTool(memory)));
-  context.subscriptions.push(lmApi.registerTool('superlocalmemory_store', new StoreMemoryTool(memory)));
+  context.subscriptions.push(asDisposable(lmApi.registerTool('superlocalmemory_search', new SearchMemoryTool(memory))));
+  context.subscriptions.push(asDisposable(lmApi.registerTool('superlocalmemory_store', new StoreMemoryTool(memory))));
 }

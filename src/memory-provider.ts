@@ -14,43 +14,6 @@ import { detectDimensionMismatch, recordDimension } from './migration-utils';
 
 export type { MemoryCategory };
 
-export interface StatsResult {
-  totalMemories: number;
-  categories: Record<string, number>;
-  edgeCount: number;
-  lastCaptureTime: number | null;
-}
-
-/**
- * Unified provider interface.  Both service-mode and legacy-mode implementations satisfy this contract.
- * Synchronous list/stats methods return cached data in service mode (stale-while-revalidate).
- */
-export interface IMemoryProvider {
-  // Core operations (async)
-  store(content: string, category?: MemoryCategory, source?: string, tags?: string[]): Promise<MemoryEntry>;
-  search(query: string, limit?: number): Promise<MemorySearchResult[]>;
-  forgetByQuery(query: string, threshold?: number): Promise<number>;
-  forgetById(id: string): boolean | Promise<boolean>;
-  deleteSource(source: string): number | Promise<number>;
-  indexWorkspace(opts?: { maxFiles?: number; maxCharsPerFile?: number }): Promise<{ indexed: number; skipped: number }>;
-
-  // Stats / counts (sync, cached in service mode)
-  stats(): StatsResult;
-  count(): number;
-
-  // Listing (sync, cached in service mode; may return [] until first cache fill)
-  listSources(): Array<{ source: string; count: number }>;
-  listByCategory(category: string, limit?: number): Array<Omit<MemoryEntry, 'embedding'>>;
-  listBySource(source: string, limit?: number): Array<Omit<MemoryEntry, 'embedding'>>;
-  listAllTags(): Array<{ tag: string; count: number }>;
-  listByTag(tag: string, limit?: number): Array<Omit<MemoryEntry, 'embedding'>>;
-  listByDateRange(start: number, end: number, limit?: number): Array<Omit<MemoryEntry, 'embedding'>>;
-
-  // Lifecycle
-  ensureInitialized(): Promise<void>;
-  close(): void;
-}
-
 
 export class MemoryProvider implements IMemoryProvider {
   private static _instance: MemoryProvider | null = null;

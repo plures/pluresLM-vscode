@@ -6,6 +6,13 @@ function getTextFromRequest(req: unknown): string {
   return (r?.prompt ?? r?.message ?? r?.text ?? '').toString();
 }
 
+function asDisposable(value: unknown): vscode.Disposable {
+  if (value && typeof (value as { dispose?: unknown }).dispose === 'function') {
+    return value as vscode.Disposable;
+  }
+  return { dispose: () => void 0 };
+}
+
 export function parseSlashCommand(text: string): { command: string; args: string } {
   const t = text.trim();
   if (t.startsWith('/')) {
@@ -95,6 +102,7 @@ export function registerChatParticipant(context: vscode.ExtensionContext, memory
     }
   };
 
-  const participant = chatAny.createChatParticipant('superlocalmemory.memory', handler);
-  context.subscriptions.push(participant);
+  const participant = (chatApi as { createChatParticipant: (...args: unknown[]) => unknown })
+    .createChatParticipant('superlocalmemory.memory', handler);
+  context.subscriptions.push(asDisposable(participant));
 }

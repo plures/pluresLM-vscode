@@ -29,7 +29,7 @@ jobs:
           PR_NUM="${{ github.event.pull_request.number }}"
 
           CHANGED=$(git diff --name-only HEAD~1 HEAD)
-          DIFF=$(git diff HEAD~1 HEAD -- ':(exclude)*.md' ':(exclude)*.yml' ':(exclude)*.json' ':(exclude).github/' ':(exclude)docs/' | head -500)
+          DIFF=$(git diff HEAD~1 HEAD -- ':(exclude)**/*.md' ':(exclude)**/*.yml' ':(exclude)**/*.json' ':(exclude).github/' ':(exclude)docs/' | head -500)
           SRC_CHANGES=$(echo "$CHANGED" | grep -vE '^\.(github|gitignore)|^(README|CHANGELOG|docs/|\.)|\.md$|\.yml$|\.json$' | head -1)
 
           if [ -z "$SRC_CHANGES" ]; then

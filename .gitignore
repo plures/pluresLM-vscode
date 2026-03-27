@@ -4,3 +4,5 @@ dist/
 .DS_Store
 .vscode-test/
 *.db
+.env
+coverage/

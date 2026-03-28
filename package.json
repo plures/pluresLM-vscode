@@ -1,10 +1,10 @@
 {
   "name": "superlocalmemory",
-  "displayName": "PluresLM — AI Memory for Copilot",
+  "displayName": "PluresLM \u2014 AI Memory for Copilot",
   "description": "Persistent vector memory for GitHub Copilot Chat. Remember context across sessions.",
   "version": "0.6.0",
   "publisher": "plures",
-  "license": "AGPL-3.0",
+  "license": "BSL-1.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/plures/pluresLM-vscode.git"

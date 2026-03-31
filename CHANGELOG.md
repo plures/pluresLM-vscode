@@ -1,3 +1,15 @@
+## [0.6.1] — 2026-03-31
+
+- fix(lifecycle): rewrite v9 — apply suggestions, merge, no nudges (43a2be3)
+- chore: license BSL 1.1 (commercial product) (ccd4cb7)
+- chore: standardize copilot-pr-lifecycle.yml to canonical version (22242f0)
+- docs: add ROADMAP.md (081297b)
+- chore: cleanup and housekeeping (0ea9d3b)
+- chore: add standard CI workflow (46fe686)
+- chore: enforce strict type-safety across org (ab6f106)
+- chore: standardize lint-clean across org (e270d81)
+- chore: apply org-standard automation files (#17) (95b373c)
+
 ## [0.6.0] — 2026-03-10
 
 - feat: service-mode QA regression suite — IMemoryProvider abstraction + 112 automated tests (#16) (14be273)

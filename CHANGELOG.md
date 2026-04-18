@@ -1,3 +1,7 @@
+## [0.8.0] — 2026-04-18
+
+- feat(lifecycle v12): auto-release when milestone completes (11cbf5a)
+
 ## [0.7.0] — 2026-04-18
 
 - feat(lifecycle v11): smart CI failure handling — infra vs code (eb74ce5)

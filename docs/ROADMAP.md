@@ -1,26 +1,26 @@
 # pluresLM VS Code Roadmap
 
-## Role in Plures Ecosystem
-pluresLM‑vscode brings persistent memory to Copilot Chat in VS Code. It provides a chat participant, sidebar, and tool integration backed by the pluresLM service.
+## Role in OASIS
+pluresLM‑vscode is the **developer adoption channel** for OASIS memory. It brings local‑first recall into Copilot Chat so builders can ship OASIS agents with persistent, privacy‑safe context.
 
 ## Current State
-Service‑first mode is the default with legacy SQLite fallback. The extension exposes commands, chat participant, tool registrations, memory packs/bundles, and a sidebar. Gaps are around service reliability, sidebar UX polish, search quality, and marketplace readiness.
+Service‑first mode is default with legacy SQLite fallback. The extension provides a chat participant, sidebar, and tool registrations. Gaps: service reliability, sidebar UX polish, search quality, and marketplace readiness.
 
-## Milestones
+## Roadmap
 
-### Near-term (Q2 2026)
-- Improve service connection lifecycle (startup checks, retries, clearer errors).
-- Finish sidebar UX (empty states, grouping, search filters, perf).
-- Refine auto‑capture and recall heuristics for Copilot agent mode.
-- Update docs/screenshots for release readiness.
+### Phase 1 — Reliability & UX (Q2 2026)
+- Harden service connection lifecycle (startup checks, retries, clearer errors).
+- Finish sidebar UX: empty states, grouping, filters, performance.
+- Refine auto‑capture/recall heuristics for agent mode.
+- Refresh docs and screenshots for release readiness.
 
-### Mid-term (Q3-Q4 2026)
-- Memory search quality improvements (ranking, highlighting, context preview).
-- Full deprecation of legacy tool aliases with migration guidance.
-- Telemetry hooks for opt‑in quality metrics and failure diagnostics.
-- Marketplace polish: branding, changelog cadence, onboarding walkthrough.
+### Phase 2 — Quality & Adoption (Q3–Q4 2026)
+- Search quality improvements (ranking, highlighting, context preview).
+- Deprecate legacy tool aliases with migration guidance.
+- Opt‑in telemetry for quality metrics and failure diagnostics.
+- Marketplace polish: branding, onboarding walkthrough, changelog cadence.
 
-### Long-term
+### Phase 3 — OASIS‑Grade Collaboration (2027)
 - Multi‑workspace memory scoping and profiles.
 - Shared memory packs with team sync workflows.
 - Deep integration with pluresLM‑mcp advanced queries and graphs.

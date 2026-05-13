@@ -238,4 +238,6 @@ locally using Transformers.js — no data leaves your machine unless you configu
 
 ## License
 
-AGPL-3.0.
+
+Dual-licensed under [BSL-1.1](LICENSE) and [MIT](LICENSE-MIT). You may choose either license at your option.
+

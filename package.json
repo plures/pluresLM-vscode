@@ -4,7 +4,7 @@
   "description": "Persistent vector memory for GitHub Copilot Chat. Remember context across sessions.",
   "version": "0.9.1",
   "publisher": "plures",
-  "license": "BSL-1.1",
+  "license": "(BSL-1.1 OR MIT)",
   "repository": {
     "type": "git",
     "url": "https://github.com/plures/pluresLM-vscode.git"

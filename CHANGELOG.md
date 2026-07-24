@@ -1,3 +1,13 @@
+## [0.9.2] — 2026-07-24
+
+- ci(release): trigger release on merge to main (#22) (2326940)
+- ci: migrate Tech Doc Writer to shared reusable (dbe2630)
+- fix(ci): repair tech-doc-writer YAML indentation / remove empty workflow (823b92a)
+- ci: add security-aware Dependabot auto-merge workflow (org backfill) (403649b)
+- ci: change release trigger from push-to-main to tag-only (4cb6f58)
+- docs: update README license section for BSL-1.1 OR MIT dual-license (f1444f3)
+- license: dual-license under BSL-1.1 OR MIT (97301bd)
+
 ## [0.9.1] — 2026-05-11
 
 - refactor: replace inline lifecycle with reusable workflow call (d111f9d)

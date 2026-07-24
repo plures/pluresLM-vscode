@@ -74,7 +74,7 @@ settings:
   process/CLI (`validate-px-grammar.cjs`-equivalent packaged artifact),
   never a re-implemented grammar inside the extension. The extension
   ships a thin wrapper that shells out to a pinned `praxis-lang` CLI/napi
-  build; version is locked in `package.json` (`praxisLangVersion`) and
+  build (pinned via the extension's `package.json` dependency version) and
   checked at activation with a clear error if mismatched.
 - Scope for v1: diagnostics (parse errors + constraint-lint from
   `pluresLM-mcp`'s `src/praxis/modules/*` rule shapes) and hover/go-to

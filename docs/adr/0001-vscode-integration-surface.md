@@ -90,7 +90,7 @@ settings:
   authorization/constraint gate meaningful).
 - LM tool `plureslm_run_procedure` is **not** auto-exposed to Copilot
   agent mode by default (opt-in setting
-  `pluresLm.agentInvoke.exposeAsTool`, default `false`) because procedures
+  `superlocalmemory.agentInvoke.exposeAsTool`, default `false`) because procedures
   can have side effects (store/update/delete); default posture is
   human-in-the-loop via command palette, matching existing
   confirmation-prompt patterns used for pack/bundle restore.

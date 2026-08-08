@@ -36,7 +36,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider('superlocalmemory.browser', treeProvider),
     vscode.window.registerTreeDataProvider('superlocalmemory.stats', statsProvider),
-    vscode.window.registerTreeDataProvider('superlocalmemory.knowledgeBrowser', knowledgeBrowserProvider)
+    vscode.window.registerTreeDataProvider('superlocalmemory.knowledgeBrowser', knowledgeBrowserProvider),
+    vscode.commands.registerCommand('superlocalmemory.filterKnowledge', async () => {
+      const text = await vscode.window.showInputBox({
+        title: 'Filter Knowledge Browser',
+        prompt: 'Enter text to filter entries (leave empty to clear)',
+        value: knowledgeBrowserProvider.filterText
+      });
+      if (text === undefined) return; // cancelled
+      knowledgeBrowserProvider.setFilter(text);
+    }),
+    vscode.commands.registerCommand('superlocalmemory.clearFilter', () => {
+      knowledgeBrowserProvider.setFilter('');
+    })
   );
 
   // Status bar

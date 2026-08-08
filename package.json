@@ -112,6 +112,18 @@
         "title": "Uninstall Memory Pack",
         "category": "Memory",
         "icon": "$(trash)"
+      },
+      {
+        "command": "superlocalmemory.filterKnowledge",
+        "title": "Filter Knowledge Browser",
+        "category": "Memory",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "superlocalmemory.clearFilter",
+        "title": "Clear Knowledge Filter",
+        "category": "Memory",
+        "icon": "$(clear-all)"
       }
     ],
     "configuration": {
@@ -212,6 +224,18 @@
       ]
     },
     "menus": {
+      "view/title": [
+        {
+          "command": "superlocalmemory.filterKnowledge",
+          "when": "view == superlocalmemory.knowledgeBrowser",
+          "group": "navigation"
+        },
+        {
+          "command": "superlocalmemory.clearFilter",
+          "when": "view == superlocalmemory.knowledgeBrowser",
+          "group": "navigation"
+        }
+      ],
       "view/item/context": [
         {
           "command": "superlocalmemory.deleteSource",

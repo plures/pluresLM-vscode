@@ -52,6 +52,28 @@ interface PendingRequest {
 
 // ─── PluresLMServiceClient ────────────────────────────────────────────────────
 
+// ─── Connection state ────────────────────────────────────────────────────────
+
+export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'failed';
+
+export interface ConnectionOptions {
+  /** Maximum number of startup/reconnect attempts before giving up. */
+  maxRetries?: number;
+  /** Base delay in ms for exponential backoff between retries. */
+  retryBaseMs?: number;
+  /** Maximum backoff delay in ms. */
+  retryMaxMs?: number;
+  /** Number of retries for individual tool calls on transient errors. */
+  callRetries?: number;
+}
+
+const DEFAULT_CONN_OPTS: Required<ConnectionOptions> = {
+  maxRetries: 3,
+  retryBaseMs: 500,
+  retryMaxMs: 5000,
+  callRetries: 2,
+};
+
 export class PluresLMServiceClient implements IMemoryProvider {
   private process: ChildProcess | null = null;
   private nextId = 0;
@@ -59,6 +81,10 @@ export class PluresLMServiceClient implements IMemoryProvider {
   private lineBuffer = '';
   private _ready = false;
   private _closed = false;
+  private _connectionState: ConnectionState = 'disconnected';
+  private _lastError: string | null = null;
+  private _consecutiveFailures = 0;
+  private readonly _connOpts: Required<ConnectionOptions>;
 
   // Stale-while-revalidate cache for sync methods
   private _stats: StatsResult = { totalMemories: 0, categories: {}, edgeCount: 0, lastCaptureTime: null };
@@ -71,20 +97,110 @@ export class PluresLMServiceClient implements IMemoryProvider {
     private readonly args: string[],
     private readonly env: Record<string, string>,
     private readonly timeoutMs: number,
-    private readonly log: (msg: string) => void
-  ) {}
+    private readonly log: (msg: string) => void,
+    connOpts?: ConnectionOptions
+  ) {
+    this._connOpts = { ...DEFAULT_CONN_OPTS, ...connOpts };
+  }
+
+  /** Current connection state (useful for status bar / UI). */
+  get connectionState(): ConnectionState {
+    return this._connectionState;
+  }
+
+  /** Last error message, if any. */
+  get lastError(): string | null {
+    return this._lastError;
+  }
 
   // ─── Lifecycle ─────────────────────────────────────────────────────────────
 
   async ensureInitialized(): Promise<void> {
     if (this._closed) throw new Error('Service client is closed');
     if (this._ready && this.process && !this.process.killed) return;
-    await this._startProcess();
+    await this._startWithRetries();
+  }
+
+  /**
+   * Attempt to start the service process with exponential-backoff retries.
+   * Distinguishes permanent errors (binary not found) from transient ones
+   * (process crashed, port conflict) to avoid pointless retries.
+   */
+  private async _startWithRetries(): Promise<void> {
+    const { maxRetries, retryBaseMs, retryMaxMs } = this._connOpts;
+    let lastErr: Error | undefined;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      if (this._closed) throw new Error('Service client is closed');
+
+      try {
+        this._connectionState = attempt === 0 ? 'connecting' : 'reconnecting';
+        await this._startProcess();
+        // Verify the connection is actually alive with a health check
+        await this._healthCheck();
+        this._connectionState = 'connected';
+        this._consecutiveFailures = 0;
+        this._lastError = null;
+        return;
+      } catch (err) {
+        lastErr = err instanceof Error ? err : new Error(String(err));
+        this._lastError = lastErr.message;
+        this.log(`Startup attempt ${attempt + 1}/${maxRetries + 1} failed: ${lastErr.message}`);
+
+        // Don't retry permanent errors (binary not found, permission denied)
+        if (this._isPermanentError(lastErr)) {
+          this._connectionState = 'failed';
+          this._consecutiveFailures++;
+          throw lastErr;
+        }
+
+        if (attempt < maxRetries) {
+          const delay = Math.min(retryBaseMs * Math.pow(2, attempt), retryMaxMs);
+          this.log(`Retrying in ${delay}ms…`);
+          await this._sleep(delay);
+        }
+      }
+    }
+
+    this._connectionState = 'failed';
+    this._consecutiveFailures++;
+    throw lastErr ?? new Error('Failed to start service after retries');
+  }
+
+  /** Returns true for errors that will never self-resolve (no point retrying). */
+  private _isPermanentError(err: Error): boolean {
+    const msg = err.message.toLowerCase();
+    return msg.includes('command not found') ||
+           msg.includes('enoent') ||
+           msg.includes('eacces') ||
+           msg.includes('permission denied');
+  }
+
+  private _sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Lightweight post-initialize check: call `tools/list` to verify the service
+   * is actually responding to requests. Fails fast with a clear message.
+   */
+  private async _healthCheck(): Promise<void> {
+    try {
+      await this._sendRequest('tools/list', {});
+      this.log('Health check passed');
+    } catch (err) {
+      throw new Error(
+        `Service started but failed health check: ${String(err)}. ` +
+        `The service process may have exited immediately after spawning.`,
+        { cause: err }
+      );
+    }
   }
 
   close(): void {
     this._closed = true;
     this._ready = false;
+    this._connectionState = 'disconnected';
     if (this._refreshTimer !== null) {
       clearTimeout(this._refreshTimer);
       this._refreshTimer = null;
@@ -424,12 +540,20 @@ export class PluresLMServiceClient implements IMemoryProvider {
     proc.on('exit', (code, signal) => {
       this.log(`exited: code=${String(code)}, signal=${String(signal)}`);
       this._ready = false;
-      this._rejectAll(new Error(`Service exited (code=${String(code)})`));
+      this._connectionState = 'disconnected';
+      this._rejectAll(new Error(`Service exited (code=${String(code)}, signal=${String(signal)})`));
+
+      // Auto-reconnect on unexpected exit (not from explicit close())
+      if (!this._closed) {
+        this.log('Unexpected exit — scheduling auto-reconnect…');
+        void this._autoReconnect();
+      }
     });
 
     proc.on('error', (err: Error) => {
       this.log(`process error: ${String(err)}`);
       this._ready = false;
+      this._connectionState = 'disconnected';
       this._rejectAll(err);
     });
 
@@ -502,15 +626,61 @@ export class PluresLMServiceClient implements IMemoryProvider {
   }
 
   private async _callTool(name: string, toolArgs: Record<string, unknown>): Promise<string> {
-    await this.ensureInitialized();
-    const result = (await this._sendRequest('tools/call', {
-      name,
-      arguments: toolArgs
-    })) as McpToolCallResult;
+    const { callRetries } = this._connOpts;
+    let lastErr: Error | undefined;
 
-    if (result.isError === true) {
-      throw new Error(`Tool error from ${name}: ${result.content.map(c => c.text).join('')}`);
+    for (let attempt = 0; attempt <= callRetries; attempt++) {
+      try {
+        await this.ensureInitialized();
+        const result = (await this._sendRequest('tools/call', {
+          name,
+          arguments: toolArgs
+        })) as McpToolCallResult;
+
+        if (result.isError === true) {
+          throw new Error(`Tool error from ${name}: ${result.content.map(c => c.text).join('')}`);
+        }
+        return result.content.map(c => c.text).join('');
+      } catch (err) {
+        lastErr = err instanceof Error ? err : new Error(String(err));
+
+        // Only retry on transient/connection errors, not on tool-level errors
+        const isTransient = this._isTransientCallError(lastErr);
+        if (!isTransient || attempt >= callRetries) {
+          throw lastErr;
+        }
+        this.log(`Tool call ${name} failed (attempt ${attempt + 1}/${callRetries + 1}): ${lastErr.message} — retrying…`);
+        // Force reconnect before retry
+        this._ready = false;
+      }
     }
-    return result.content.map(c => c.text).join('');
+
+    throw lastErr ?? new Error(`Tool call ${name} failed after retries`);
+  }
+
+  /** Returns true for errors that suggest a broken connection rather than a tool-level problem. */
+  private _isTransientCallError(err: Error): boolean {
+    const msg = err.message.toLowerCase();
+    return msg.includes('timeout') ||
+           msg.includes('stdin write error') ||
+           msg.includes('service exited') ||
+           msg.includes('service restarting') ||
+           msg.includes('service client closed') === false;
+  }
+
+  private async _autoReconnect(): Promise<void> {
+    if (this._closed) return;
+    const backoff = Math.min(
+      this._connOpts.retryBaseMs * Math.pow(2, this._consecutiveFailures),
+      this._connOpts.retryMaxMs
+    );
+    this.log(`Auto-reconnect in ${backoff}ms (consecutive failures: ${this._consecutiveFailures})`);
+    await this._sleep(backoff);
+    if (this._closed) return;
+    try {
+      await this._startWithRetries();
+    } catch (err) {
+      this.log(`Auto-reconnect failed: ${String(err)}`);
+    }
   }
 }

@@ -197,3 +197,57 @@ describe('startup — mode selection config (service vs legacy)', () => {
     expect(s.lastCaptureTime === null || typeof s.lastCaptureTime === 'number').toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Hardened connection lifecycle (Issue #18)
+// ---------------------------------------------------------------------------
+
+describe('startup — hardened connection lifecycle', () => {
+  it('ensureInitialized() throws on permanent init error (e.g. binary not found)', async () => {
+    const svc = new InMemoryService({ fault: { initError: 'Command not found: plureslm-service' } });
+    await expect(svc.ensureInitialized()).rejects.toThrow('Command not found');
+  });
+
+  it('ensureInitialized() succeeds after transient failures', async () => {
+    const svc = new InMemoryService({
+      fault: { initError: 'Connection refused', initFailCount: 2 }
+    });
+    // First two attempts fail
+    await expect(svc.ensureInitialized()).rejects.toThrow('Connection refused');
+    await expect(svc.ensureInitialized()).rejects.toThrow('Connection refused');
+    // Third attempt succeeds
+    await expect(svc.ensureInitialized()).resolves.toBeUndefined();
+  });
+
+  it('store() throws clear error when service init fails permanently', async () => {
+    const svc = new InMemoryService({
+      fault: { initError: 'ENOENT', storeError: 'Service unreachable' }
+    });
+    await expect(svc.ensureInitialized()).rejects.toThrow('ENOENT');
+    // store should still work via its own fault (independent of init in mock)
+    await expect(svc.store('test', 'other', 'test', [])).rejects.toThrow('Service unreachable');
+  });
+
+  it('close() is safe to call multiple times', () => {
+    const svc = makeService();
+    expect(() => {
+      svc.close();
+      svc.close();
+      svc.close();
+    }).not.toThrow();
+  });
+
+  it('operations work after successful init following transient failures', async () => {
+    const svc = new InMemoryService({
+      fault: { initError: 'Connection timeout', initFailCount: 1 }
+    });
+    // First attempt fails
+    await expect(svc.ensureInitialized()).rejects.toThrow('Connection timeout');
+    // Second attempt succeeds
+    await svc.ensureInitialized();
+    // Operations work
+    const entry = await svc.store('after-recovery', 'decision', 'test', []);
+    expect(entry.content).toBe('after-recovery');
+    expect(svc.count()).toBe(1);
+  });
+});

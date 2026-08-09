@@ -1,3 +1,7 @@
+## [0.11.0] — 2026-08-09
+
+- feat: finish sidebar UX — empty states, text filtering, entry caching (#26) (876eaf5)
+
 ## [0.10.0] — 2026-08-09
 
 - feat: harden service connection lifecycle with retries, health checks, and auto-reconnect (#25) (3ec9d07)

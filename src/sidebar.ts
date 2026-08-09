@@ -181,8 +181,11 @@ export class KnowledgeBrowserProvider implements vscode.TreeDataProvider<Browser
   }
 
   private _cacheKey(data: GroupData | DateRangeData): string {
-    if (data.kind === 'group') return `g:${data.groupBy}:${data.value}:${this._filterText}`;
-    return `d:${data.label}:${data.start}:${data.end}:${this._filterText}`;
+    return JSON.stringify(
+      data.kind === 'group'
+        ? { kind: 'group', groupBy: data.groupBy, value: data.value, filterText: this._filterText }
+        : { kind: 'dateRange', label: data.label, start: data.start, end: data.end, filterText: this._filterText }
+    );
   }
 
   private _getCachedGroupEntries(data: GroupData): BrowserTreeItem[] {

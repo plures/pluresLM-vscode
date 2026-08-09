@@ -26,7 +26,7 @@ const SKIP_PATTERNS: RegExp[] = [
   /\.map$/,
   /\.d\.ts$/,
   /\.generated\.\w+$/,
-  /\.snap$/
+  /\.snap$/,
   /\.svg$/,
   /\.png$/,
   /\.jpg$/,

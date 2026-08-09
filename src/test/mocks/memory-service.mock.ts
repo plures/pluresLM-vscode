@@ -37,6 +37,10 @@ export interface ServiceFault {
   searchError?: string;
   /** If true, `search()` always returns `[]` without throwing. */
   empty?: boolean;
+  /** If set, `ensureInitialized()` throws this error (simulates startup failure). */
+  initError?: string;
+  /** Number of times `ensureInitialized()` should fail before succeeding (simulates transient startup). */
+  initFailCount?: number;
 }
 
 // Sentinel embedding used by `store()` to mark entries as "has embedding".
@@ -47,6 +51,7 @@ export class InMemoryService implements IMemoryProvider {
   private memories: Map<string, MemoryEntry> = new Map();
   private scoreFn: ScoreFn;
   fault: ServiceFault;
+  private _initAttempts = 0;
 
   constructor(opts?: { scoreFn?: ScoreFn; fault?: ServiceFault }) {
     this.scoreFn = opts?.scoreFn ?? (() => 1.0);
@@ -56,7 +61,17 @@ export class InMemoryService implements IMemoryProvider {
   // ── IMemoryProvider — lifecycle ────────────────────────────────────────────
 
   async ensureInitialized(): Promise<void> {
-    // No-op for the in-memory mock; always ready.
+    if (this.fault.initError) {
+      if (this.fault.initFailCount !== undefined && this.fault.initFailCount > 0) {
+        this._initAttempts++;
+        if (this._initAttempts <= this.fault.initFailCount) {
+          throw new Error(this.fault.initError);
+        }
+        // After initFailCount attempts, succeed
+        return;
+      }
+      throw new Error(this.fault.initError);
+    }
   }
 
   close(): void {

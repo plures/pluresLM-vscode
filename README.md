@@ -2,52 +2,21 @@
 
 Persistent, local-first long-term memory for **GitHub Copilot Chat**.
 
-This extension adds:
-- `@memory` chat participant (Copilot Chat)
-- Language Model Tools for Copilot agent mode (auto-recall / auto-store)
-- Memory sidebar (Activity Bar)
-- Status bar memory counter
+PluresLM gives your Copilot sessions a durable memory layer — decisions,
+code patterns, error fixes, and architectural context survive across sessions
+and workspaces.
 
-> **Default mode: service-first.** Starting from v0.3, the extension routes all
-> memory reads and writes through `plureslm-service` (MCP/JSON-RPC over stdio).
-> This removes the `better-sqlite3` runtime requirement in the default path.
-> See [Legacy mode](#legacy-mode) if you want the old local SQLite behaviour.
+| Feature | Description |
+|---------|-------------|
+| **`@memory` chat participant** | Store and recall memories directly in Copilot Chat |
+| **Language Model Tools** | `plureslm_search_text` / `plureslm_store` — Copilot agent mode auto-recall & auto-store |
+| **Memory sidebar** | Browse, group, and filter memories from the Activity Bar |
+| **Status bar counter** | Live memory count in the VS Code status bar |
+| **Packs & Bundles** | Export, share, and restore memory collections |
 
-## Migration from v0.2 (local SQLite) to v0.3 (service-first)
-
-| What changed | v0.2 | v0.3 |
-|---|---|---|
-| Storage backend | `better-sqlite3` (bundled) | `plureslm-service` (external, MCP) |
-| LM tool names | `superlocalmemory_search` / `_store` | `plureslm_search_text` / `plureslm_store` |
-| Default mode | local SQLite | service (falls back to legacy if service unavailable) |
-| `better-sqlite3` dep | required | optional (only for legacy mode) |
-
-**Old tool names `superlocalmemory_search` / `superlocalmemory_store` remain registered
-for one release cycle for backwards compatibility.** They will be removed in v0.4.
-
-### Step-by-step upgrade
-
-1. Install the PluresLM service: `npm install -g plureslm-service`
-2. Verify it starts: `plureslm-service --version`
-3. Install / reload this extension — it will auto-connect on activation.
-4. Update any custom prompts that reference `superlocalmemory_*` to use `plureslm_*`.
-
-### Legacy mode (opt-in)
-
-Set in VS Code settings:
-```json
-"superlocalmemory.mode": "legacy"
-```
-This restores the old `better-sqlite3` + Transformers.js local path.
-`better-sqlite3` **must** be installed: `npm install better-sqlite3`.
-
----
-
-## Screenshots
-
-- `@memory` participant in Copilot Chat: *(screenshot placeholder)*
-- Memory sidebar: *(screenshot placeholder)*
-- Status bar count: *(screenshot placeholder)*
+> **Service-first architecture.** All memory reads and writes route through
+> `plureslm-service` (MCP/JSON-RPC over stdio). A legacy SQLite fallback is
+> available — see [Legacy mode](#legacy-mode).
 
 ## Features
 
@@ -84,7 +53,7 @@ Exports all memories to a `.memorybundle.json` file. Use this to back up your me
 ```
 Command Palette → Memory: Export Memory Bundle
 → Choose save location
-→ memory-bundle-2024-01-15.memorybundle.json exported (142 memories)
+→ memory-bundle-2026-08-08.memorybundle.json exported (142 memories)
 ```
 
 #### Restore Memory Bundle
@@ -151,27 +120,38 @@ Command Palette → Memory: Uninstall Memory Pack
 → Pack "react-patterns" uninstalled (23 memories removed)
 ```
 
-### Copilot agent mode tools
-This extension contributes tools declared in `package.json`:
-- `plureslm_search_text` *(primary, aligned with MCP surface)*
-- `plureslm_store`  *(primary, aligned with MCP surface)*
-- `superlocalmemory_search` *(legacy alias, deprecated — remove in v0.4)*
-- `superlocalmemory_store` *(legacy alias, deprecated — remove in v0.4)*
+### Copilot agent-mode tools
 
-## Installation (development)
+The extension registers Language Model Tools so Copilot can read and write
+memory automatically in agent mode:
+
+| Tool | Purpose |
+|------|---------|
+| `plureslm_search_text` | Search memories for relevant past context |
+| `plureslm_store` | Store a new memory |
+
+## Installation
+
+### From the Marketplace
+
+Search for **PluresLM** in the VS Code Extensions view, or install from
+the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=plures.superlocalmemory).
+
+### Development build
 
 ```bash
 npm install
 npm run build
 ```
 
-Then press `F5` in VS Code to run an Extension Development Host.
+Press `F5` in VS Code to launch an Extension Development Host.
 
-**Service mode (default):** The extension will try to spawn `plureslm-service`.
-If the service is not found it logs a warning and falls back to legacy SQLite mode automatically.
+**Service mode (default):** The extension spawns `plureslm-service` on activation.
+If the service binary is not found, it logs a warning and falls back to legacy mode.
 
-**Legacy mode:** Install `better-sqlite3` and set `"superlocalmemory.mode": "legacy"`.
-The bge-small-en-v1.5 model (~33 MB) will be downloaded from Hugging Face on first use.
+**Legacy mode:** Set `"superlocalmemory.mode": "legacy"`, then install
+`better-sqlite3`: `npm install better-sqlite3`. The bge-small-en-v1.5 model
+(≈33 MB) downloads from Hugging Face on first use.
 
 ## Configuration
 
@@ -180,16 +160,18 @@ The bge-small-en-v1.5 model (~33 MB) will be downloaded from Hugging Face on fir
 | Setting | Default | Description |
 |---|---|---|
 | `superlocalmemory.mode` | `"service"` | `"service"` or `"legacy"` |
-| `superlocalmemory.serviceCommand` | `"plureslm-service"` | Command to spawn the service (must be on PATH) |
+| `superlocalmemory.serviceCommand` | `"plureslm-service"` | Command to spawn the service (must be on `PATH`) |
 | `superlocalmemory.serviceArgs` | `[]` | Extra CLI args passed to the service |
 | `superlocalmemory.serviceTimeout` | `10000` | RPC timeout in milliseconds |
 | `superlocalmemory.serviceEnv` | `{}` | Extra env vars injected into the service process |
 
 ### Legacy mode
 
+To use legacy mode, set `"superlocalmemory.mode": "legacy"` and install
+`better-sqlite3`.
+
 | Setting | Default | Description |
 |---|---|---|
-| `superlocalmemory.mode` | `"service"` | Must be changed to `"legacy"` to enable this path |
 | `superlocalmemory.dbPath` | `""` | SQLite DB path (default: `~/.superlocalmemory/vscode.db`) |
 | `superlocalmemory.openaiApiKey` | `""` | OpenAI key to override Transformers.js embeddings |
 | `superlocalmemory.openaiEmbeddingModel` | `"text-embedding-3-small"` | OpenAI model |
@@ -207,26 +189,27 @@ The bge-small-en-v1.5 model (~33 MB) will be downloaded from Hugging Face on fir
 
 ### "Failed to spawn 'plureslm-service'"
 
-The service binary is not on PATH.  Either:
+The service binary is not on `PATH`. Either:
 - Install it: `npm install -g plureslm-service`
-- Set `superlocalmemory.serviceCommand` to the full path
+- Point to the binary: `"superlocalmemory.serviceCommand": "/path/to/plureslm-service"`
 - Switch to legacy mode: `"superlocalmemory.mode": "legacy"`
 
 ### "RPC timeout"
 
-The service started but didn't respond within `serviceTimeout` ms.
+The service started but didn't respond within the configured timeout.
 - Increase `superlocalmemory.serviceTimeout` (default 10 000 ms)
-- Check the **Output → Superlocalmemory** panel for service stderr
+- Check **Output → Superlocalmemory** for service stderr
 
-### Service mode — sidebar shows empty
+### Sidebar shows empty
 
-The cache is populated on first `store` or after a short warm-up delay. If the service
-doesn't expose `plureslm_list`, the sidebar's "By Source / By Date / By Topic" groups
-will remain empty — only **By Category** (derived from stats) is always populated.
+The sidebar populates on the first `store` operation or after a short warm-up.
+If the service doesn't expose `plureslm_list`, the **By Source / By Date / By Topic**
+groups remain empty — only **By Category** (derived from stats) is always populated.
 
 ### Legacy mode — "better-sqlite3 not installed"
 
-Run `npm install better-sqlite3` inside the extension folder, or switch to service mode.
+Run `npm install better-sqlite3` inside the extension folder, or switch to
+service mode (`"superlocalmemory.mode": "service"`).
 
 ## Privacy & Data Handling
 

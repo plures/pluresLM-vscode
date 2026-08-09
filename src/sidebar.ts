@@ -83,7 +83,8 @@ export class KnowledgeBrowserProvider implements vscode.TreeDataProvider<Browser
 
   async getChildren(element?: BrowserTreeItem): Promise<BrowserTreeItem[]> {
     if (!element) {
-      if (this.memory.count() === 0) {
+      const total = this.memory.stats().totalMemories;
+      if (total === 0) {
         return [emptyItem('No memories stored yet. Use @memory /store or the Store Memory command to get started.')];
       }
       return [

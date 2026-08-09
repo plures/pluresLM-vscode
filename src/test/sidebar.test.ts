@@ -28,7 +28,7 @@ describe('KnowledgeBrowserProvider', () => {
     expect(labels).toContain('By Topic');
   });
 
-  it('shows empty state for category group with no tags', async () => {
+  it('shows empty state for topic group when no tags exist', async () => {
     svc.seed({ content: 'hello' });
     const roots = await provider.getChildren();
     // Expand By Topic

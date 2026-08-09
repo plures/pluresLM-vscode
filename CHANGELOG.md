@@ -1,3 +1,7 @@
+## [0.12.0] — 2026-08-09
+
+- feat: refine auto-capture/recall heuristics for agent mode (#27) (d21c2a5)
+
 ## [0.11.0] — 2026-08-09
 
 - feat: finish sidebar UX — empty states, text filtering, entry caching (#26) (876eaf5)

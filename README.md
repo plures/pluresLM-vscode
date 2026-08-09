@@ -198,7 +198,7 @@ The service binary is not on `PATH`. Either:
 
 The service started but didn't respond within the configured timeout.
 - Increase `superlocalmemory.serviceTimeout` (default 10 000 ms)
-- Check **Output → PluresLM** for service stderr
+- Check **Output → Superlocalmemory** for service stderr
 
 ### Sidebar shows empty
 

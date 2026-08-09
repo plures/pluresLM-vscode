@@ -661,11 +661,15 @@ export class PluresLMServiceClient implements IMemoryProvider {
   /** Returns true for errors that suggest a broken connection rather than a tool-level problem. */
   private _isTransientCallError(err: Error): boolean {
     const msg = err.message.toLowerCase();
-    return msg.includes('timeout') ||
+
+    // Never retry once the client is explicitly closed.
+    if (msg.includes('service client closed') || msg.includes('service client is closed')) return false;
+
+    return msg.includes('rpc timeout') ||
+           msg.includes('timeout') ||
            msg.includes('stdin write error') ||
            msg.includes('service exited') ||
-           msg.includes('service restarting') ||
-           msg.includes('service client closed') === false;
+           msg.includes('service restarting');
   }
 
   private async _autoReconnect(): Promise<void> {

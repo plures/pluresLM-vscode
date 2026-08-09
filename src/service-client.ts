@@ -84,6 +84,7 @@ export class PluresLMServiceClient implements IMemoryProvider {
   private _connectionState: ConnectionState = 'disconnected';
   private _lastError: string | null = null;
   private _consecutiveFailures = 0;
+  private _reconnecting = false;
   private readonly _connOpts: Required<ConnectionOptions>;
 
   // Stale-while-revalidate cache for sync methods
@@ -673,18 +674,23 @@ export class PluresLMServiceClient implements IMemoryProvider {
   }
 
   private async _autoReconnect(): Promise<void> {
-    if (this._closed) return;
-    const backoff = Math.min(
-      this._connOpts.retryBaseMs * Math.pow(2, this._consecutiveFailures),
-      this._connOpts.retryMaxMs
-    );
-    this.log(`Auto-reconnect in ${backoff}ms (consecutive failures: ${this._consecutiveFailures})`);
-    await this._sleep(backoff);
-    if (this._closed) return;
+    if (this._closed || this._reconnecting) return;
+    this._reconnecting = true;
     try {
-      await this._startWithRetries();
-    } catch (err) {
-      this.log(`Auto-reconnect failed: ${String(err)}`);
+      const backoff = Math.min(
+        this._connOpts.retryBaseMs * Math.pow(2, this._consecutiveFailures),
+        this._connOpts.retryMaxMs
+      );
+      this.log(`Auto-reconnect in ${backoff}ms (consecutive failures: ${this._consecutiveFailures})`);
+      await this._sleep(backoff);
+      if (this._closed) return;
+      try {
+        await this._startWithRetries();
+      } catch (err) {
+        this.log(`Auto-reconnect failed: ${String(err)}`);
+      }
+    } finally {
+      this._reconnecting = false;
     }
   }
 }

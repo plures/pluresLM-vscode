@@ -195,6 +195,21 @@
           "type": "number",
           "default": 5,
           "description": "Maximum memories to recall"
+        },
+        "superlocalmemory.captureCooldownMs": {
+          "type": "number",
+          "default": 30000,
+          "description": "Minimum milliseconds between auto-captures of the same file"
+        },
+        "superlocalmemory.minCaptureLength": {
+          "type": "number",
+          "default": 50,
+          "description": "Minimum content length (characters) for a file save to be auto-captured"
+        },
+        "superlocalmemory.minRecallScore": {
+          "type": "number",
+          "default": 0.5,
+          "description": "Minimum similarity score (0–1) for recalled memories in agent mode"
         }
       }
     },

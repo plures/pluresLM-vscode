@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import { IMemoryProvider, type MemoryCategory } from './memory-provider';
+import { getConfig } from './config';
+import { filterByRelevance } from './capture-heuristics';
 
 const memoryCategories = new Set<MemoryCategory>([
   'decision',
@@ -33,7 +35,10 @@ class SearchMemoryTool implements vscode.LanguageModelTool<{ query: string }> {
     const query = options.input.query;
     const results = await this.memory.search(query);
 
-    const text = results
+    const cfg = getConfig();
+    const filtered = filterByRelevance(results, cfg.minRecallScore, cfg.maxRecallResults);
+
+    const text = filtered
       .map((r) => {
         const snippet = r.entry.content.length > 400 ? r.entry.content.slice(0, 400) + '…' : r.entry.content;
         return `- [${r.entry.category}] ${(r.score * 100).toFixed(1)}%\n  ${snippet.replace(/\n/g, '\n  ')}`;

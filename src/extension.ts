@@ -7,6 +7,7 @@ import { MemoryStatusBar } from './status-bar';
 import { MemoryTreeDataProvider, StatsViewProvider, KnowledgeBrowserProvider } from './sidebar';
 import { registerChatParticipant } from './chat-participant';
 import { registerLanguageModelTools } from './tools';
+import { shouldSkipFile, isContentTrivial, CaptureCooldown } from './capture-heuristics';
 
 let memory: IMemoryProvider | null = null;
 let statusBar: MemoryStatusBar | null = null;
@@ -65,12 +66,25 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Auto-capture
   const cfg = getConfig();
   if (cfg.autoCapture) {
+    const cooldown = new CaptureCooldown(cfg.captureCooldownMs);
+
     context.subscriptions.push(
       vscode.workspace.onDidSaveTextDocument(async (doc) => {
         try {
-          // Store a small, useful snapshot
           const rel = vscode.workspace.asRelativePath(doc.uri);
+
+          // Heuristic: skip generated / binary / lock files
+          if (shouldSkipFile(rel)) return;
+
           const text = doc.getText();
+
+          // Heuristic: skip trivially small files
+          if (isContentTrivial(text, cfg.minCaptureLength)) return;
+
+          // Heuristic: per-file cooldown to avoid redundant captures on rapid saves
+          if (!cooldown.tryAcquire(rel)) return;
+
+          // Store a small, useful snapshot
           const snippet = text.length > 1500 ? text.slice(0, 1500) + '\n…(truncated)' : text;
           await memory?.store(`Saved: ${rel}\n\n${snippet}`, 'code-pattern', 'vscode:autosave', ['autosave']);
           refreshAll();

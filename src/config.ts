@@ -18,6 +18,11 @@ export interface SuperlocalmemoryConfig {
   // Shared
   autoCapture: boolean;
   maxRecallResults: number;
+
+  // Agent-mode heuristics
+  captureCooldownMs: number;
+  minCaptureLength: number;
+  minRecallScore: number;
 }
 
 export function getConfig(): SuperlocalmemoryConfig {
@@ -53,6 +58,10 @@ export function getConfig(): SuperlocalmemoryConfig {
     ollamaEmbeddingModel: cfg.get<string>('ollamaEmbeddingModel', 'nomic-embed-text'),
 
     autoCapture: cfg.get<boolean>('autoCapture', true),
-    maxRecallResults: cfg.get<number>('maxRecallResults', 5)
+    maxRecallResults: cfg.get<number>('maxRecallResults', 5),
+
+    captureCooldownMs: cfg.get<number>('captureCooldownMs', 30_000),
+    minCaptureLength: cfg.get<number>('minCaptureLength', 50),
+    minRecallScore: cfg.get<number>('minRecallScore', 0.5),
   };
 }

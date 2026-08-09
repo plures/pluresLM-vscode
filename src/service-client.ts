@@ -57,7 +57,7 @@ interface PendingRequest {
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'failed';
 
 export interface ConnectionOptions {
-  /** Maximum number of startup/reconnect attempts before giving up. */
+  /** Maximum number of retries after the initial startup/reconnect attempt (total attempts = maxRetries + 1). */
   maxRetries?: number;
   /** Base delay in ms for exponential backoff between retries. */
   retryBaseMs?: number;

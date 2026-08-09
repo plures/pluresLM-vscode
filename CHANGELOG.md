@@ -1,3 +1,9 @@
+## [0.10.0] — 2026-08-09
+
+- feat: harden service connection lifecycle with retries, health checks, and auto-reconnect (#25) (3ec9d07)
+- chore: delegate dependabot-auto-merge.yml to org reusable template (#24) (a166420)
+- docs(design): ADR-0001 VS Code integration surface (#23) (32480ed)
+
 ## [0.9.2] — 2026-07-24
 
 - ci(release): trigger release on merge to main (#22) (2326940)
